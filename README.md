@@ -99,8 +99,8 @@ cd tengen-speech-sdk-go
 Gateway 支持 API Key 认证。通过 `-apikey` 参数传递：
 
 ```bash
-./bin/tts_stream_sdk -apikey "sk_free_xxx" "测试"
-./bin/stt_stream_sdk -apikey "sk_free_xxx" audio.wav
+./bin/tts_stream_sdk -apikey "sk_xxx" "测试"
+./bin/stt_stream_sdk -apikey "sk_xxx" audio.wav
 ```
 
 在代码中配置：
@@ -109,7 +109,7 @@ Gateway 支持 API Key 认证。通过 `-apikey` 参数传递：
 config := &tts.Config{
     GatewayURL: "ws://localhost:8080",
     Provider:   "tengen",                  // 品牌抽象层，根据 voice_id 自动路由
-    APIKey:     "sk_free_xxx",             // API Key 认证
+    APIKey:     "sk_xxx",             // API Key 认证
     VoiceID:    "en-NG-OkunNeutral",       // 通过 URL 参数传递，实现精准路由
 }
 ```
