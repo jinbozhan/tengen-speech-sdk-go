@@ -1,0 +1,25 @@
+# 编译产物
+/bin/
+/benchmark*/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试和临时文件
+*.test
+*.out
+*.pcm
+*.wav
+*.mp3
+stt_stream
+tts_stream
+output.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
