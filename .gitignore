@@ -13,8 +13,6 @@
 *.pcm
 *.wav
 *.mp3
-stt_stream
-tts_stream
 output.*
 
 # IDE
