@@ -136,7 +136,15 @@ func (c *Client) SynthesizeStreamWithOptions(ctx context.Context, text string, o
 // 适用于对话TTS、长文本分段合成等场景
 func (c *Client) CreateSession(ctx context.Context, opts *SynthesisOptions) (*Session, error) {
 	if opts == nil {
-		opts = DefaultSynthesisOptions()
+		// 从 config 构建 SynthesisOptions，而不是使用 DefaultSynthesisOptions()
+		opts = &SynthesisOptions{
+			VoiceID:     c.config.VoiceID,
+			Speed:       c.config.Speed,
+			Pitch:       c.config.Pitch,
+			Volume:      c.config.Volume,
+			SampleRate:  c.config.SampleRate,
+			AudioFormat: c.config.AudioFormat,
+		}
 	}
 	return c.createSession(ctx, opts)
 }

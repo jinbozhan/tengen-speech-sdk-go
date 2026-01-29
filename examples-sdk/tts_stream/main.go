@@ -42,7 +42,7 @@ func init() {
 	flag.StringVar(&voiceID, "voice", "loongstella", "Voice ID")
 	flag.Float64Var(&speed, "speed", 1.0, "Speaking speed (0.5-2.0)")
 	flag.StringVar(&output, "output", "output.wav", "Output WAV file")
-	flag.IntVar(&sampleRate, "sample-rate", 24000, "Audio sample rate")
+	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
 	flag.IntVar(&channels, "channels", 1, "Audio channels")
 	flag.IntVar(&bitsPerSample, "bits", 16, "Bits per sample")
 }
