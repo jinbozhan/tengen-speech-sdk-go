@@ -86,6 +86,7 @@ func (c *Client) SynthesizeToBytes(ctx context.Context, text string) ([]byte, er
 func (c *Client) SynthesizeStream(ctx context.Context, text string) (*AudioStream, error) {
 	opts := &SynthesisOptions{
 		VoiceID:     c.config.VoiceID,
+		Language:    c.config.Language,
 		Speed:       c.config.Speed,
 		Pitch:       c.config.Pitch,
 		Volume:      c.config.Volume,
@@ -139,6 +140,7 @@ func (c *Client) CreateSession(ctx context.Context, opts *SynthesisOptions) (*Se
 		// 从 config 构建 SynthesisOptions，而不是使用 DefaultSynthesisOptions()
 		opts = &SynthesisOptions{
 			VoiceID:     c.config.VoiceID,
+			Language:    c.config.Language,
 			Speed:       c.config.Speed,
 			Pitch:       c.config.Pitch,
 			Volume:      c.config.Volume,

@@ -12,6 +12,7 @@ type Config struct {
 
 	// 合成参数
 	VoiceID     string  // 语音ID（克隆声音）
+	Language    string  // 语言代码: en-NG, sw-TZ 等（用于文本归一化）
 	Speed       float64 // 语速 0.5-2.0
 	Pitch       float64 // 音调 -10 to 10
 	Volume      float64 // 音量 0-100
@@ -74,6 +75,12 @@ func (c *Config) WithVoice(voiceID string) *Config {
 	return c
 }
 
+// WithLanguage 设置语言代码（用于文本归一化）
+func (c *Config) WithLanguage(language string) *Config {
+	c.Language = language
+	return c
+}
+
 // WithSpeed 设置语速
 func (c *Config) WithSpeed(speed float64) *Config {
 	c.Speed = speed
@@ -113,6 +120,7 @@ func (c *Config) WithAudioFormat(audioFormat string) *Config {
 // SynthesisOptions 合成选项
 type SynthesisOptions struct {
 	VoiceID     string  // 语音ID
+	Language    string  // 语言代码
 	Speed       float64 // 语速
 	Pitch       float64 // 音调
 	Volume      float64 // 音量

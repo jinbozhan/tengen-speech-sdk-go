@@ -28,6 +28,7 @@ var (
 	provider      string
 	apiKey        string
 	voiceID       string
+	language      string
 	speed         float64
 	output        string
 	sampleRate    int
@@ -40,6 +41,7 @@ func init() {
 	flag.StringVar(&provider, "provider", "qwen_realtime", "TTS provider")
 	flag.StringVar(&apiKey, "apikey", "", "API Key")
 	flag.StringVar(&voiceID, "voice", "loongstella", "Voice ID")
+	flag.StringVar(&language, "language", "", "Language code for text normalization (e.g. en-NG, sw-TZ)")
 	flag.Float64Var(&speed, "speed", 1.0, "Speaking speed (0.5-2.0)")
 	flag.StringVar(&output, "output", "output.wav", "Output WAV file")
 	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
@@ -81,6 +83,7 @@ func main() {
 		Provider:       provider,
 		APIKey:         apiKey,
 		VoiceID:        voiceID,
+		Language:       language,
 		Speed:          speed,
 		SampleRate:     sampleRate,
 		AudioFormat:    "pcm",

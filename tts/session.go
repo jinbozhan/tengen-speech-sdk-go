@@ -107,6 +107,7 @@ func (s *Session) sendConfig() error {
 	params := protocol.SessionParams{
 		Provider:    s.Provider,
 		VoiceID:     s.opts.VoiceID,
+		Language:    s.opts.Language,
 		Speed:       s.opts.Speed,
 		Pitch:       s.opts.Pitch,
 		Volume:      s.opts.Volume,
