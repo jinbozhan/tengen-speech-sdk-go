@@ -30,6 +30,7 @@ var (
 	voiceID       string
 	language      string
 	speed         float64
+	volume        float64
 	output        string
 	sampleRate    int
 	channels      int
@@ -43,6 +44,7 @@ func init() {
 	flag.StringVar(&voiceID, "voice", "loongstella", "Voice ID")
 	flag.StringVar(&language, "language", "", "Language code for text normalization (e.g. en-NG, sw-TZ)")
 	flag.Float64Var(&speed, "speed", 1.0, "Speaking speed (0.5-2.0)")
+	flag.Float64Var(&volume, "volume", 1.0, "Volume (0.0-1.0)")
 	flag.StringVar(&output, "output", "output.wav", "Output WAV file")
 	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
 	flag.IntVar(&channels, "channels", 1, "Audio channels")
@@ -85,6 +87,7 @@ func main() {
 		VoiceID:        voiceID,
 		Language:       language,
 		Speed:          speed,
+		Volume:         volume,
 		SampleRate:     sampleRate,
 		AudioFormat:    "pcm",
 		ConnectTimeout: 30 * time.Second,
@@ -98,7 +101,7 @@ func main() {
 	}
 	defer client.Close()
 
-	fmt.Printf("TTS 配置: provider=%s, voice=%s, speed=%.1f\n\n", provider, voiceID, speed)
+	fmt.Printf("TTS 配置: provider=%s, voice=%s, speed=%.1f, volume=%.1f\n\n", provider, voiceID, speed, volume)
 
 	// 创建 Session（可复用资源）
 	session, err := client.CreateSession(ctx, nil)

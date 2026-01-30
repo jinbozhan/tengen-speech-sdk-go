@@ -15,7 +15,7 @@ type Config struct {
 	Language    string  // 语言代码: en-NG, sw-TZ 等（用于文本归一化）
 	Speed       float64 // 语速 0.5-2.0
 	Pitch       float64 // 音调 -10 to 10
-	Volume      float64 // 音量 0-100
+	Volume      float64 // 音量 0.0-1.0
 	SampleRate  int     // 采样率 (Hz)
 	AudioFormat string  // 音频格式: pcm, wav, mp3
 
@@ -35,7 +35,7 @@ func DefaultConfig() *Config {
 		VoiceID:          "",
 		Speed:            1.0,
 		Pitch:            0,
-		Volume:           100,
+		Volume:           1.0,
 		SampleRate:       8000,
 		AudioFormat:      "pcm",
 		ConnectTimeout:   10 * time.Second,
@@ -58,7 +58,7 @@ func (c *Config) Validate() error {
 		c.Speed = 1.0
 	}
 	if c.Volume <= 0 {
-		c.Volume = 100
+		c.Volume = 1.0
 	}
 	return nil
 }
@@ -133,7 +133,7 @@ func DefaultSynthesisOptions() *SynthesisOptions {
 	return &SynthesisOptions{
 		Speed:       1.0,
 		Pitch:       0,
-		Volume:      100,
+		Volume:      1.0,
 		SampleRate:  24000,
 		AudioFormat: "pcm",
 	}
