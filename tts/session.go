@@ -27,6 +27,11 @@ type Session struct {
 	closed    bool
 	seqNum    int
 
+	// 配置状态
+	configDone   bool            // 配置是否完成
+	configDoneCh chan struct{}   // config_done 信号
+	configDoneAt time.Time       // config_done 收到时间
+
 	// 多轮合成支持
 	ctx           context.Context
 	cancel        context.CancelFunc
@@ -44,13 +49,14 @@ type Session struct {
 func newSession(conn *transport.Conn, config *Config, opts *SynthesisOptions) *Session {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Session{
-		Provider: config.Provider,
-		conn:     conn,
-		config:   config,
-		opts:     opts,
-		closeCh:  make(chan struct{}),
-		ctx:      ctx,
-		cancel:   cancel,
+		Provider:     config.Provider,
+		conn:         conn,
+		config:       config,
+		opts:         opts,
+		closeCh:      make(chan struct{}),
+		configDoneCh: make(chan struct{}),
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 }
 
@@ -66,8 +72,13 @@ func (s *Session) start(ctx context.Context) error {
 		return err
 	}
 
-	// 启动消息处理循环
+	// 启动消息处理循环（需要先启动，才能接收 config_done）
 	go s.messageLoop(ctx)
+
+	// 等待 session.config_done
+	if err := s.waitConfigDone(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -119,6 +130,16 @@ func (s *Session) sendConfig() error {
 	return s.conn.SendJSON(msg)
 }
 
+// waitConfigDone 等待配置完成
+func (s *Session) waitConfigDone(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("wait config_done: %w", ctx.Err())
+	case <-s.configDoneCh:
+		return nil
+	}
+}
+
 // messageLoop 消息处理循环
 func (s *Session) messageLoop(ctx context.Context) {
 	for {
@@ -147,6 +168,8 @@ func (s *Session) handleMessage(data []byte) {
 	}
 
 	switch msgType {
+	case protocol.MessageTypeSessionConfigDone:
+		s.handleConfigDone()
 	case protocol.MessageTypeAudioDelta:
 		s.handleAudioDelta(data)
 	case protocol.MessageTypeAudioDone:
@@ -156,6 +179,19 @@ func (s *Session) handleMessage(data []byte) {
 	default:
 		log.Printf("[client.tts] Unknown message type: %s", msgType)
 	}
+}
+
+// handleConfigDone 处理配置完成消息
+func (s *Session) handleConfigDone() {
+	s.mu.Lock()
+	if !s.configDone {
+		s.configDone = true
+		s.configDoneAt = time.Now()
+		close(s.configDoneCh)
+	}
+	s.mu.Unlock()
+
+	log.Printf("[client.tts] Config done: id=%s", s.ID)
 }
 
 // handleAudioDelta 处理音频数据块
@@ -439,4 +475,18 @@ func (s *Session) ConnectDuration() time.Duration {
 // ConnectedAt 返回建连完成时间
 func (s *Session) ConnectedAt() time.Time {
 	return s.conn.ConnectedAt()
+}
+
+// ConfigDoneAt 返回 config_done 收到时间
+func (s *Session) ConfigDoneAt() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.configDoneAt
+}
+
+// IsConfigDone 检查配置是否完成
+func (s *Session) IsConfigDone() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.configDone
 }
