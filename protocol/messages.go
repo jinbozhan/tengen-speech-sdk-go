@@ -131,6 +131,7 @@ const (
 	ErrorCodeInternalError      = "INTERNAL_ERROR"
 	ErrorCodeUnsupported        = "UNSUPPORTED"
 	ErrorCodeServiceUnavailable = "SERVICE_UNAVAILABLE" // 服务不可用（内部配置问题）
+	ErrorCodeVoiceNotFound      = "VOICE_NOT_FOUND"      // 音色不存在
 )
 
 // NewSessionReady 创建会话就绪消息
