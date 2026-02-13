@@ -34,7 +34,7 @@ func DefaultConfig() *Config {
 		Provider:         "tengen",
 		VoiceID:          "",
 		Speed:            1.0,
-		Pitch:            0,
+		Pitch:            1.0,
 		Volume:           1.0,
 		SampleRate:       8000,
 		AudioFormat:      "pcm",
@@ -132,9 +132,9 @@ type SynthesisOptions struct {
 func DefaultSynthesisOptions() *SynthesisOptions {
 	return &SynthesisOptions{
 		Speed:       1.0,
-		Pitch:       0,
+		Pitch:       1.0,
 		Volume:      1.0,
-		SampleRate:  24000,
+		SampleRate:  8000,
 		AudioFormat: "pcm",
 	}
 }
