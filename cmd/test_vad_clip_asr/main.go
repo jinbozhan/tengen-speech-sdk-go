@@ -178,7 +178,6 @@ func recognizeFile(ctx context.Context, audioPath string) (string, []stt.Segment
 		APIKey:         apiKey,
 		Language:       language,
 		SampleRate:     sampleRate,
-		EnableVAD:      true,
 		ConnectTimeout: connectTimeout,
 		ReadTimeout:    readTimeout,
 		WriteTimeout:   writeTimeout,

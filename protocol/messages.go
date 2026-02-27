@@ -52,9 +52,6 @@ type SessionParams struct {
 	Pitch   float64 `json:"pitch,omitempty"`
 	Volume  float64 `json:"volume,omitempty"`
 
-	// STT 特有参数
-	EnableVAD    bool `json:"enable_vad,omitempty"`
-	VADSilenceMs int  `json:"vad_silence_ms,omitempty"`
 }
 
 // AudioAppend 音频数据消息（STT）

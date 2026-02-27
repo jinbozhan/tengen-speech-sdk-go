@@ -56,11 +56,9 @@ func (c *Client) RecognizeFile(ctx context.Context, audioPath string) (*Recognit
 
 	// 创建流式会话
 	opts := &StreamOptions{
-		Language:     c.config.Language,
-		SampleRate:   c.config.SampleRate,
-		AudioFormat:  c.config.AudioFormat,
-		EnableVAD:    c.config.EnableVAD,
-		VADSilenceMs: c.config.VADSilenceMs,
+		Language:    c.config.Language,
+		SampleRate:  c.config.SampleRate,
+		AudioFormat: c.config.AudioFormat,
 	}
 
 	session, err := c.RecognizeStream(ctx, opts)
@@ -226,11 +224,9 @@ func (c *Client) RecognizeBytes(ctx context.Context, audio []byte) (*Recognition
 
 	// 创建流式会话
 	opts := &StreamOptions{
-		Language:     c.config.Language,
-		SampleRate:   c.config.SampleRate,
-		AudioFormat:  c.config.AudioFormat,
-		EnableVAD:    c.config.EnableVAD,
-		VADSilenceMs: c.config.VADSilenceMs,
+		Language:    c.config.Language,
+		SampleRate:  c.config.SampleRate,
+		AudioFormat: c.config.AudioFormat,
 	}
 
 	session, err := c.RecognizeStream(ctx, opts)

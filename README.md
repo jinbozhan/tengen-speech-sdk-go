@@ -166,7 +166,6 @@ config := &stt.Config{
     APIKey:     "sk_xxx",
     Language:   "zh-CN",
     SampleRate: 16000,
-    EnableVAD:  true,
 }
 client, err := stt.NewClient(config)
 defer client.Close()
@@ -220,7 +219,6 @@ for event := range session.Events() {
 | `Language` | string | `zh-CN` | 识别语言 |
 | `SampleRate` | int | `16000` | 采样率 |
 | `AudioFormat` | string | `pcm` | 音频格式 |
-| `EnableVAD` | bool | `true` | 启用语音活动检测 |
 
 ## WebSocket 协议
 
@@ -245,7 +243,7 @@ for event := range session.Events() {
 ```
 1. 建立连接 → ws://host/ws/stt?provider=xxx&api_key=xxx
 2. 接收 session.ready
-3. 发送 session.config (语言、采样率、VAD)
+3. 发送 session.config (语言、采样率)
 4. 循环发送 audio.append (音频分块)
 5. 实时接收 transcript.partial (部分结果)
 6. 发送 input.commit (标记结束)

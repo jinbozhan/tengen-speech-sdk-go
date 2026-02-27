@@ -105,12 +105,10 @@ func (s *Session) waitReady(ctx context.Context) error {
 // sendConfig 发送会话配置
 func (s *Session) sendConfig() error {
 	params := protocol.SessionParams{
-		Provider:     s.Provider,
-		Language:     s.opts.Language,
-		SampleRate:   s.opts.SampleRate,
-		AudioFormat:  s.opts.AudioFormat,
-		EnableVAD:    s.opts.EnableVAD,
-		VADSilenceMs: s.opts.VADSilenceMs,
+		Provider:    s.Provider,
+		Language:    s.opts.Language,
+		SampleRate:  s.opts.SampleRate,
+		AudioFormat: s.opts.AudioFormat,
 	}
 
 	msg := transport.NewSessionConfig(params)

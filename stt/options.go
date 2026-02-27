@@ -14,9 +14,6 @@ type Config struct {
 	Language     string // 识别语言: zh-CN, en-US
 	SampleRate   int    // 采样率: 16000, 8000
 	AudioFormat  string // 音频格式: pcm, wav
-	EnableVAD    bool   // 启用VAD
-	VADSilenceMs int    // VAD静音阈值(ms)
-
 	// 连接配置
 	ConnectTimeout   time.Duration // 连接超时
 	ReadTimeout      time.Duration // 读超时
@@ -33,8 +30,6 @@ func DefaultConfig() *Config {
 		Language:         "zh-CN",
 		SampleRate:       16000,
 		AudioFormat:      "pcm",
-		EnableVAD:        true,
-		VADSilenceMs:     500,
 		ConnectTimeout:   10 * time.Second,
 		ReadTimeout:      60 * time.Second,
 		WriteTimeout:     10 * time.Second,
@@ -81,13 +76,6 @@ func (c *Config) WithSampleRate(sampleRate int) *Config {
 	return c
 }
 
-// WithVAD 设置VAD
-func (c *Config) WithVAD(enable bool, silenceMs int) *Config {
-	c.EnableVAD = enable
-	c.VADSilenceMs = silenceMs
-	return c
-}
-
 // WithAPIKey 设置API Key
 func (c *Config) WithAPIKey(apiKey string) *Config {
 	c.APIKey = apiKey
@@ -96,21 +84,17 @@ func (c *Config) WithAPIKey(apiKey string) *Config {
 
 // StreamOptions 流式识别选项
 type StreamOptions struct {
-	Language     string // 识别语言
-	SampleRate   int    // 采样率
-	AudioFormat  string // 音频格式
-	EnableVAD    bool   // 启用VAD
-	VADSilenceMs int    // VAD静音阈值(ms)
+	Language    string // 识别语言
+	SampleRate  int    // 采样率
+	AudioFormat string // 音频格式
 }
 
 // DefaultStreamOptions 返回默认流式选项
 func DefaultStreamOptions() *StreamOptions {
 	return &StreamOptions{
-		Language:     "zh-CN",
-		SampleRate:   16000,
-		AudioFormat:  "pcm",
-		EnableVAD:    true,
-		VADSilenceMs: 500,
+		Language:    "zh-CN",
+		SampleRate:  16000,
+		AudioFormat: "pcm",
 	}
 }
 
