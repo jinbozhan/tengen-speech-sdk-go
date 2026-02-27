@@ -16,42 +16,47 @@ echo "=========================================="
 echo ""
 
 # 1. 依赖管理
-echo "[1/8] 更新依赖..."
+echo "[1/9] 更新依赖..."
 go mod tidy
 
 # 2. 编译所有包
-echo "[2/8] 编译所有包..."
+echo "[2/9] 编译所有包..."
 go build ./...
 
 # 3. 编译 TTS SDK Demo
-echo "[3/8] 编译 TTS SDK Demo..."
+echo "[3/9] 编译 TTS SDK Demo..."
 go build -o bin/tts_stream_sdk ./examples-sdk/tts_stream
 echo "      -> bin/tts_stream_sdk"
 
 # 4. 编译 STT SDK Demo
-echo "[4/8] 编译 STT SDK Demo..."
+echo "[4/9] 编译 STT SDK Demo..."
 go build -o bin/stt_stream_sdk ./examples-sdk/stt_stream
 echo "      -> bin/stt_stream_sdk"
 
 # 5. 编译 STT WebSocket 示例
-echo "[5/8] 编译 STT WebSocket 示例..."
+echo "[5/9] 编译 STT WebSocket 示例..."
 go build -o bin/stt_stream_ws ./examples-ws/stt_stream
 echo "      -> bin/stt_stream_ws"
 
 # 6. 编译 TTS WebSocket 示例
-echo "[6/8] 编译 TTS WebSocket 示例..."
+echo "[6/9] 编译 TTS WebSocket 示例..."
 go build -o bin/tts_stream_ws ./examples-ws/tts_stream
 echo "      -> bin/tts_stream_ws"
 
 # 7. 编译 TTS Benchmark
-echo "[7/8] 编译 TTS Benchmark..."
+echo "[7/9] 编译 TTS Benchmark..."
 go build -o bin/tts_benchmark ./cmd/tts_benchmark
 echo "      -> bin/tts_benchmark"
 
 # 8. 编译 TTS Detailed Timing
-echo "[8/8] 编译 TTS Detailed Timing..."
+echo "[8/9] 编译 TTS Detailed Timing..."
 go build -o bin/tts_detailed_timing ./cmd/tts_detailed_timing
 echo "      -> bin/tts_detailed_timing"
+
+# 9. 编译 VAD-Clip ASR 测试工具
+echo "[9/9] 编译 VAD-Clip ASR 测试工具..."
+go build -o bin/test_vad_clip_asr ./cmd/test_vad_clip_asr
+echo "      -> bin/test_vad_clip_asr"
 
 echo ""
 echo "=========================================="
@@ -85,4 +90,9 @@ echo ""
 echo "  TTS Detailed Timing (详细耗时分析):"
 echo "    ./bin/tts_detailed_timing -provider tengen -voice en-NG-OkunNeutral -iterations 3"
 echo "    ./bin/tts_detailed_timing -h  # 查看帮助"
+echo ""
+echo "  VAD-Clip ASR 测试:"
+echo "    ./bin/test_vad_clip_asr -sample-dir ../../sample"
+echo "    ./bin/test_vad_clip_asr -gateway ws://localhost:7861 -provider azure -language en-NG"
+echo "    ./bin/test_vad_clip_asr -output results.md  # 输出 Markdown 报告"
 echo ""

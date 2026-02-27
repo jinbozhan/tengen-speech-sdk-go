@@ -14,6 +14,11 @@ import (
 	"github.com/jinbozhan/tengen-speech-sdk-go/transport"
 )
 
+const (
+	// commit 后无新事件的空闲超时，超时即认为识别完成
+	recognizeIdleTimeout = 10 * time.Second
+)
+
 // Client STT客户端
 type Client struct {
 	config *Config
@@ -75,53 +80,70 @@ func (c *Client) RecognizeFile(ctx context.Context, audioPath string) (*Recognit
 	}
 	var texts []string
 
-	// 启动goroutine发送音频
-	sendDone := make(chan error, 1)
+	// goroutine: 发送音频 + commit
+	sendDoneCh := make(chan error, 1)
 	go func() {
-		sendDone <- c.sendAudioFromReader(session, file)
+		if err := c.sendAudioFromReader(session, file); err != nil {
+			sendDoneCh <- err
+			return
+		}
+		sendDoneCh <- session.Commit()
 	}()
 
-	// 收集识别结果
-	collectDone := make(chan struct{})
-	go func() {
-		defer close(collectDone)
-		for event := range session.Events() {
+	// 事件循环：commit 后启动空闲计时器，每收到事件重置
+	// 如果 idleTimeout 内无新事件到达，认为识别完成
+	committed := false
+	idleTimer := time.NewTimer(0)
+	if !idleTimer.Stop() {
+		<-idleTimer.C
+	}
+	defer idleTimer.Stop()
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break loop
+
+		case err := <-sendDoneCh:
+			if err != nil {
+				return nil, fmt.Errorf("send audio: %w", err)
+			}
+			committed = true
+			sendDoneCh = nil // 防止重复读取
+			idleTimer.Reset(recognizeIdleTimeout)
+
+		case event, ok := <-session.Events():
+			if !ok {
+				break loop
+			}
+			if committed {
+				idleTimer.Reset(recognizeIdleTimeout)
+			}
 			switch event.Type {
 			case EventPartial:
 				// 部分结果，可以用于实时显示
 			case EventFinal:
 				texts = append(texts, event.Text)
 				result.Segments = append(result.Segments, Segment{
-					Text:       event.Text,
-					IsFinal:    true,
-					Confidence: event.Confidence,
-					StartTime:  event.StartTime,
-					EndTime:    event.EndTime,
+					Text:      event.Text,
+					IsFinal:   true,
+					StartTime: event.StartTime,
+					EndTime:   event.EndTime,
 				})
 			case EventError:
 				result.Error = event.Error
+			case EventInputDone:
+				break loop
 			case EventClosed:
-				return
+				break loop
 			}
+
+		case <-idleTimer.C:
+			log.Printf("[client.stt] Idle timeout %v after last event, closing (no input.done received)", recognizeIdleTimeout)
+			break loop
 		}
-	}()
-
-	// 等待发送完成
-	if err := <-sendDone; err != nil {
-		session.Close() // 关闭 session，触发 Events() channel 关闭
-		<-collectDone   // 等待收集 goroutine 退出
-		return nil, fmt.Errorf("send audio: %w", err)
 	}
-
-	// 提交输入
-	if err := session.Commit(); err != nil {
-		session.Close() // 关闭 session，触发 Events() channel 关闭
-		<-collectDone   // 等待收集 goroutine 退出
-		return nil, fmt.Errorf("commit: %w", err)
-	}
-
-	// 等待所有结果
-	<-collectDone
 
 	// 合并文本
 	result.Text = strings.Join(texts, "")
@@ -223,8 +245,8 @@ func (c *Client) RecognizeBytes(ctx context.Context, audio []byte) (*Recognition
 	}
 	var texts []string
 
-	// 启动goroutine发送音频
-	sendDone := make(chan error, 1)
+	// goroutine: 发送音频 + commit
+	sendDoneCh := make(chan error, 1)
 	go func() {
 		chunkSize := c.config.SampleRate * 2 / 10 // 100ms
 		for i := 0; i < len(audio); i += chunkSize {
@@ -233,52 +255,64 @@ func (c *Client) RecognizeBytes(ctx context.Context, audio []byte) (*Recognition
 				end = len(audio)
 			}
 			if err := session.Send(audio[i:end]); err != nil {
-				sendDone <- err
+				sendDoneCh <- err
 				return
 			}
 		}
-		sendDone <- nil
+		sendDoneCh <- session.Commit()
 	}()
 
-	// 收集识别结果
-	collectDone := make(chan struct{})
-	go func() {
-		defer close(collectDone)
-		for event := range session.Events() {
+	// 事件循环：commit 后启动空闲计时器
+	committed := false
+	idleTimer := time.NewTimer(0)
+	if !idleTimer.Stop() {
+		<-idleTimer.C
+	}
+	defer idleTimer.Stop()
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break loop
+
+		case err := <-sendDoneCh:
+			if err != nil {
+				return nil, fmt.Errorf("send audio: %w", err)
+			}
+			committed = true
+			sendDoneCh = nil
+			idleTimer.Reset(recognizeIdleTimeout)
+
+		case event, ok := <-session.Events():
+			if !ok {
+				break loop
+			}
+			if committed {
+				idleTimer.Reset(recognizeIdleTimeout)
+			}
 			switch event.Type {
 			case EventFinal:
 				texts = append(texts, event.Text)
 				result.Segments = append(result.Segments, Segment{
-					Text:       event.Text,
-					IsFinal:    true,
-					Confidence: event.Confidence,
-					StartTime:  event.StartTime,
-					EndTime:    event.EndTime,
+					Text:      event.Text,
+					IsFinal:   true,
+					StartTime: event.StartTime,
+					EndTime:   event.EndTime,
 				})
 			case EventError:
 				result.Error = event.Error
+			case EventInputDone:
+				break loop
 			case EventClosed:
-				return
+				break loop
 			}
+
+		case <-idleTimer.C:
+			log.Printf("[client.stt] Idle timeout %v after last event, closing (no input.done received)", recognizeIdleTimeout)
+			break loop
 		}
-	}()
-
-	// 等待发送完成
-	if err := <-sendDone; err != nil {
-		session.Close() // 关闭 session，触发 Events() channel 关闭
-		<-collectDone   // 等待收集 goroutine 退出
-		return nil, fmt.Errorf("send audio: %w", err)
 	}
-
-	// 提交输入
-	if err := session.Commit(); err != nil {
-		session.Close() // 关闭 session，触发 Events() channel 关闭
-		<-collectDone   // 等待收集 goroutine 退出
-		return nil, fmt.Errorf("commit: %w", err)
-	}
-
-	// 等待所有结果
-	<-collectDone
 
 	// 合并文本
 	result.Text = strings.Join(texts, "")

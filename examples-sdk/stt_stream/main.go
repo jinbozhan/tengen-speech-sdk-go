@@ -166,8 +166,9 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 			// 显示部分结果（覆盖同一行）
 			fmt.Printf("\r[部分] %s", event.Text)
 		case stt.EventFinal:
-			// 显示最终结果（换行）
-			fmt.Printf("\r[最终] %s\n", event.Text)
+			// 显示最终结果（换行），包含时间戳
+			fmt.Printf("\r[最终] [%.3fs - %.3fs] %s\n",
+				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
 			finalTexts = append(finalTexts, event.Text)
 		case stt.EventError:
 			return fmt.Errorf("识别错误: %v", event.Error)
@@ -227,7 +228,8 @@ func printResult(result *stt.RecognitionResult) {
 	if len(result.Segments) > 0 {
 		fmt.Println("  分段:")
 		for i, seg := range result.Segments {
-			fmt.Printf("    [%d] %s (置信度: %.2f)\n", i+1, seg.Text, seg.Confidence)
+			fmt.Printf("    [%d] [%.3fs - %.3fs] %s\n",
+				i+1, seg.StartTime.Seconds(), seg.EndTime.Seconds(), seg.Text)
 		}
 	}
 

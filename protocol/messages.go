@@ -23,6 +23,8 @@ const (
 	MessageTypeTranscriptFinal   MessageType = "transcript.final"
 	MessageTypeAudioDelta        MessageType = "audio.delta"
 	MessageTypeAudioDone         MessageType = "audio.done"
+	MessageTypeInputDone         MessageType = "input.done"
+	MessageTypeProcessing        MessageType = "processing"
 	MessageTypeError             MessageType = "error"
 )
 
@@ -97,10 +99,9 @@ type TranscriptPartial struct {
 // TranscriptFinal 最终识别结果（STT）
 type TranscriptFinal struct {
 	Type       MessageType `json:"type"`
-	Text       string      `json:"text"`
-	Confidence float64     `json:"confidence,omitempty"`
-	StartTime  int64       `json:"start_time,omitempty"` // 100纳秒单位
-	EndTime    int64       `json:"end_time,omitempty"`
+	Text      string      `json:"text"`
+	StartTime int64       `json:"start_time,omitempty"` // 毫秒
+	EndTime   int64       `json:"end_time,omitempty"`
 }
 
 // AudioDelta 音频数据块（TTS）
@@ -111,6 +112,11 @@ type AudioDelta struct {
 
 // AudioDone 音频完成消息（TTS）
 type AudioDone struct {
+	Type MessageType `json:"type"`
+}
+
+// InputDone 识别完成消息（STT）
+type InputDone struct {
 	Type MessageType `json:"type"`
 }
 
@@ -158,13 +164,12 @@ func NewTranscriptPartial(text string) *TranscriptPartial {
 }
 
 // NewTranscriptFinal 创建最终识别结果
-func NewTranscriptFinal(text string, confidence float64, startTime, endTime int64) *TranscriptFinal {
+func NewTranscriptFinal(text string, startTime, endTime int64) *TranscriptFinal {
 	return &TranscriptFinal{
-		Type:       MessageTypeTranscriptFinal,
-		Text:       text,
-		Confidence: confidence,
-		StartTime:  startTime,
-		EndTime:    endTime,
+		Type:      MessageTypeTranscriptFinal,
+		Text:      text,
+		StartTime: startTime,
+		EndTime:   endTime,
 	}
 }
 
@@ -181,6 +186,11 @@ func NewAudioDone() *AudioDone {
 	return &AudioDone{
 		Type: MessageTypeAudioDone,
 	}
+}
+
+// Processing 处理中心跳消息（STT）
+type Processing struct {
+	Type MessageType `json:"type"`
 }
 
 // NewError 创建错误消息

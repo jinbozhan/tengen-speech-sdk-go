@@ -152,6 +152,10 @@ func (s *Session) handleMessage(data []byte) {
 		s.handlePartial(data)
 	case protocol.MessageTypeTranscriptFinal:
 		s.handleFinal(data)
+	case protocol.MessageTypeInputDone:
+		s.sendEvent(NewInputDoneEvent())
+	case protocol.MessageTypeProcessing:
+		s.sendEvent(NewProcessingEvent())
 	case protocol.MessageTypeError:
 		s.handleError(data)
 	default:
@@ -181,11 +185,11 @@ func (s *Session) handleFinal(data []byte) {
 	}
 
 	final := msg.(*protocol.TranscriptFinal)
-	// 将100纳秒单位转换为time.Duration（纳秒）
-	startTime := time.Duration(final.StartTime * 100)
-	endTime := time.Duration(final.EndTime * 100)
+	// Gateway 发送的时间戳单位为毫秒
+	startTime := time.Duration(final.StartTime) * time.Millisecond
+	endTime := time.Duration(final.EndTime) * time.Millisecond
 
-	event := NewFinalEvent(final.Text, final.Confidence, startTime, endTime)
+	event := NewFinalEvent(final.Text, startTime, endTime)
 	s.sendEvent(event)
 }
 

@@ -47,6 +47,10 @@ func ParseMessage(data []byte) (interface{}, error) {
 		msg = &protocol.AudioDelta{}
 	case protocol.MessageTypeAudioDone:
 		msg = &protocol.AudioDone{}
+	case protocol.MessageTypeInputDone:
+		msg = &protocol.InputDone{}
+	case protocol.MessageTypeProcessing:
+		msg = &protocol.Processing{}
 	case protocol.MessageTypeError:
 		msg = &protocol.ErrorMessage{}
 
@@ -124,6 +128,8 @@ func IsServerMessage(msgType protocol.MessageType) bool {
 		protocol.MessageTypeTranscriptFinal,
 		protocol.MessageTypeAudioDelta,
 		protocol.MessageTypeAudioDone,
+		protocol.MessageTypeInputDone,
+		protocol.MessageTypeProcessing,
 		protocol.MessageTypeError:
 		return true
 	default:

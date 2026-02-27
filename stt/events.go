@@ -15,6 +15,10 @@ const (
 	EventFinal EventType = "final"
 	// EventError 错误
 	EventError EventType = "error"
+	// EventInputDone 识别完成（服务端通知）
+	EventInputDone EventType = "input_done"
+	// EventProcessing 处理中心跳（服务端保活）
+	EventProcessing EventType = "processing"
 	// EventClosed 会话关闭
 	EventClosed EventType = "closed"
 )
@@ -23,10 +27,9 @@ const (
 type RecognitionEvent struct {
 	Type       EventType     // 事件类型
 	SessionID  string        // 会话ID
-	Text       string        // 识别文本
-	IsFinal    bool          // 是否最终结果
-	Confidence float64       // 置信度 (0-1)
-	StartTime  time.Duration // 开始时间
+	Text      string        // 识别文本
+	IsFinal   bool          // 是否最终结果
+	StartTime time.Duration // 开始时间
 	EndTime    time.Duration // 结束时间
 	Error      error         // 错误（仅EventError时有效）
 }
@@ -74,14 +77,13 @@ func NewPartialEvent(text string) *RecognitionEvent {
 }
 
 // NewFinalEvent 创建最终识别事件
-func NewFinalEvent(text string, confidence float64, startTime, endTime time.Duration) *RecognitionEvent {
+func NewFinalEvent(text string, startTime, endTime time.Duration) *RecognitionEvent {
 	return &RecognitionEvent{
-		Type:       EventFinal,
-		Text:       text,
-		IsFinal:    true,
-		Confidence: confidence,
-		StartTime:  startTime,
-		EndTime:    endTime,
+		Type:      EventFinal,
+		Text:      text,
+		IsFinal:   true,
+		StartTime: startTime,
+		EndTime:   endTime,
 	}
 }
 
@@ -90,6 +92,20 @@ func NewErrorEvent(err error) *RecognitionEvent {
 	return &RecognitionEvent{
 		Type:  EventError,
 		Error: err,
+	}
+}
+
+// NewInputDoneEvent 创建识别完成事件
+func NewInputDoneEvent() *RecognitionEvent {
+	return &RecognitionEvent{
+		Type: EventInputDone,
+	}
+}
+
+// NewProcessingEvent 创建处理中心跳事件
+func NewProcessingEvent() *RecognitionEvent {
+	return &RecognitionEvent{
+		Type: EventProcessing,
 	}
 }
 
@@ -110,11 +126,10 @@ type RecognitionResult struct {
 
 // Segment 识别分段
 type Segment struct {
-	Text       string
-	IsFinal    bool
-	Confidence float64
-	StartTime  time.Duration
-	EndTime    time.Duration
+	Text      string
+	IsFinal   bool
+	StartTime time.Duration
+	EndTime   time.Duration
 }
 
 // EventHandler 事件处理回调

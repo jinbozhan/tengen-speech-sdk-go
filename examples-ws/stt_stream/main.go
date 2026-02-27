@@ -308,7 +308,7 @@ func handleSTTEvents(session *stt.Session) ([]string, error) {
 
 		case stt.EventFinal:
 			// 最终识别结果 - 换行显示
-			fmt.Printf("\r[最终] %s (置信度: %.2f)\n", event.Text, event.Confidence)
+			fmt.Printf("\r[最终] %s\n", event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
 		case stt.EventError:
