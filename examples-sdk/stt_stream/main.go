@@ -22,8 +22,6 @@ var (
 	apiKey     string
 	language   string
 	sampleRate int
-	streaming  bool
-	enableVAD  bool
 )
 
 func init() {
@@ -31,9 +29,7 @@ func init() {
 	flag.StringVar(&provider, "provider", "azure", "STT provider (azure, qwen)")
 	flag.StringVar(&apiKey, "apikey", "", "API Key for authentication")
 	flag.StringVar(&language, "language", "zh-CN", "Recognition language")
-	flag.IntVar(&sampleRate, "sample-rate", 16000, "Audio sample rate")
-	flag.BoolVar(&streaming, "stream", false, "Enable streaming mode (show partial results)")
-	flag.BoolVar(&enableVAD, "vad", true, "Enable Voice Activity Detection")
+	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
 }
 
 func main() {
@@ -50,7 +46,6 @@ func main() {
 		fmt.Println("Examples:")
 		fmt.Println("  stt_demo audio.wav")
 		fmt.Println("  stt_demo -provider qwen -language en-US recording.wav")
-		fmt.Println("  stt_demo -stream audio.wav  # 显示实时部分识别结果")
 		os.Exit(1)
 	}
 
@@ -79,7 +74,7 @@ func main() {
 		APIKey:         apiKey,
 		Language:       language,
 		SampleRate:     sampleRate,
-		EnableVAD:      enableVAD,
+		AudioFormat:    "pcm",
 		ConnectTimeout: 30 * time.Second,
 		ReadTimeout:    120 * time.Second,
 		WriteTimeout:   10 * time.Second,
@@ -97,23 +92,12 @@ func main() {
 	fmt.Printf("  Provider: %s\n", provider)
 	fmt.Printf("  Language: %s\n", language)
 	fmt.Printf("  Sample Rate: %d Hz\n", sampleRate)
-	fmt.Printf("  VAD: %v\n", enableVAD)
 	fmt.Printf("  Audio File: %s\n", audioFile)
 	fmt.Println()
 
 	start := time.Now()
 
-	if streaming {
-		// 流式模式：显示部分识别结果
-		err = recognizeStreaming(ctx, client, audioFile)
-	} else {
-		// 简单模式：直接识别文件
-		result, err := client.RecognizeFile(ctx, audioFile)
-		if err != nil {
-			log.Fatalf("识别失败: %v", err)
-		}
-		printResult(result)
-	}
+	err = recognizeStreaming(ctx, client, audioFile)
 
 	if err != nil {
 		log.Fatalf("识别失败: %v", err)
@@ -134,9 +118,9 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 
 	// 创建流式会话
 	opts := &stt.StreamOptions{
-		Language:   language,
-		SampleRate: sampleRate,
-		EnableVAD:  enableVAD,
+		Language:    language,
+		SampleRate:  sampleRate,
+		AudioFormat: "pcm",
 	}
 	session, err := client.RecognizeStream(ctx, opts)
 	if err != nil {
@@ -210,30 +194,11 @@ func sendAudio(session *stt.Session, reader io.Reader, sampleRate int) error {
 			if err := session.Send(buf[:n]); err != nil {
 				return err
 			}
-			// 模拟实时发送速度（可选）
-			// time.Sleep(100 * time.Millisecond)
+			// 模拟实时发送速度
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 
 	// 提交输入
 	return session.Commit()
-}
-
-// printResult 打印识别结果
-func printResult(result *stt.RecognitionResult) {
-	fmt.Println("识别结果:")
-	fmt.Printf("  文本: %s\n", result.Text)
-	fmt.Printf("  耗时: %dms\n", result.Duration.Milliseconds())
-
-	if len(result.Segments) > 0 {
-		fmt.Println("  分段:")
-		for i, seg := range result.Segments {
-			fmt.Printf("    [%d] [%.3fs - %.3fs] %s\n",
-				i+1, seg.StartTime.Seconds(), seg.EndTime.Seconds(), seg.Text)
-		}
-	}
-
-	if result.Error != nil {
-		fmt.Printf("  错误: %v\n", result.Error)
-	}
 }

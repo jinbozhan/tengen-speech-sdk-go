@@ -3,7 +3,7 @@
 // 本示例展示完整的 WebSocket 流式语音识别流程：
 //   1. 建立 WebSocket 连接 (/ws/stt?provider=xxx)
 //   2. 等待 session.ready 消息，获取会话ID
-//   3. 发送 session.config 配置语言、采样率、VAD等参数
+//   3. 发送 session.config 配置语言、采样率等参数
 //   4. 分块发送 audio.append 消息（音频数据 base64 编码）
 //   5. 实时接收 transcript.partial 部分识别结果
 //   6. 发送 input.commit 标记音频结束
@@ -13,7 +13,6 @@
 // 使用方法:
 //   ./stt_stream audio.wav
 //   ./stt_stream -provider azure -language zh-CN audio.wav
-//   ./stt_stream -realtime audio.wav  # 模拟实时发送速度
 package main
 
 import (
@@ -38,8 +37,6 @@ var (
 	apiKey     string
 	language   string
 	sampleRate int
-	enableVAD  bool
-	realtime   bool // 是否模拟实时发送速度
 )
 
 func init() {
@@ -47,9 +44,7 @@ func init() {
 	flag.StringVar(&provider, "provider", "azure", "STT provider (azure, qwen)")
 	flag.StringVar(&apiKey, "apikey", "", "API Key for authentication")
 	flag.StringVar(&language, "language", "zh-CN", "Recognition language (zh-CN, en-US)")
-	flag.IntVar(&sampleRate, "sample-rate", 16000, "Audio sample rate in Hz")
-	flag.BoolVar(&enableVAD, "vad", true, "Enable Voice Activity Detection")
-	flag.BoolVar(&realtime, "realtime", false, "Simulate realtime audio streaming speed")
+	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate in Hz")
 }
 
 func main() {
@@ -104,12 +99,11 @@ func printUsage() {
 	fmt.Println("Examples:")
 	fmt.Println("  stt_stream audio.wav")
 	fmt.Println("  stt_stream -provider azure -language zh-CN audio.wav")
-	fmt.Println("  stt_stream -realtime audio.wav  # 模拟实时发送")
 	fmt.Println()
 	fmt.Println("WebSocket 协议流程:")
 	fmt.Println("  1. 建立连接 → /ws/stt?provider=xxx")
 	fmt.Println("  2. 接收 session.ready")
-	fmt.Println("  3. 发送 session.config (语言、采样率、VAD)")
+	fmt.Println("  3. 发送 session.config (语言、采样率)")
 	fmt.Println("  4. 循环发送 audio.append (音频分块)")
 	fmt.Println("  5. 实时接收 transcript.partial (部分结果)")
 	fmt.Println("  6. 发送 input.commit (标记结束)")
@@ -128,8 +122,6 @@ func printConfig(audioFile string) {
 	fmt.Printf("  Provider:    %s\n", provider)
 	fmt.Printf("  Language:    %s\n", language)
 	fmt.Printf("  Sample Rate: %d Hz\n", sampleRate)
-	fmt.Printf("  VAD:         %v\n", enableVAD)
-	fmt.Printf("  Realtime:    %v\n", realtime)
 	fmt.Printf("  Audio File:  %s\n", audioFile)
 	fmt.Println()
 }
@@ -143,7 +135,7 @@ func runStreamingSTT(ctx context.Context, audioPath string) error {
 		APIKey:         apiKey,
 		Language:       language,
 		SampleRate:     sampleRate,
-		EnableVAD:      enableVAD,
+		AudioFormat:    "pcm",
 		ConnectTimeout: 30 * time.Second,
 		ReadTimeout:    120 * time.Second,
 		WriteTimeout:   10 * time.Second,
@@ -181,9 +173,9 @@ func runStreamingSTT(ctx context.Context, audioPath string) error {
 	fmt.Println("建立流式会话...")
 
 	opts := &stt.StreamOptions{
-		Language:   language,
-		SampleRate: sampleRate,
-		EnableVAD:  enableVAD,
+		Language:    language,
+		SampleRate:  sampleRate,
+		AudioFormat: "pcm",
 	}
 
 	session, err := client.RecognizeStream(ctx, opts)
@@ -269,10 +261,8 @@ func sendAudioChunks(session *stt.Session, file *os.File, sampleRate int) error 
 			chunkCount++
 			totalBytes += int64(n)
 
-			// 可选：模拟实时发送速度
-			if realtime {
-				time.Sleep(100 * time.Millisecond)
-			}
+			// 模拟实时发送速度
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 
