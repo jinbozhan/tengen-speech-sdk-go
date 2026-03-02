@@ -158,6 +158,7 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 
 	// 处理识别事件
 	fmt.Println("识别中...")
+loop:
 	for event := range session.Events() {
 		switch event.Type {
 		case stt.EventPartial:
@@ -170,8 +171,10 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 			finalTexts = append(finalTexts, event.Text)
 		case stt.EventError:
 			return fmt.Errorf("识别错误: %v", event.Error)
+		case stt.EventInputDone:
+			break loop
 		case stt.EventClosed:
-			// 会话结束
+			break loop
 		}
 	}
 
