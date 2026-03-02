@@ -169,6 +169,7 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 	// 显示完整结果
 	if len(finalTexts) > 0 {
 		fmt.Println()
+		fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 		fmt.Println("完整识别结果:")
 		fmt.Println(strings.Join(finalTexts, ""))
 	}

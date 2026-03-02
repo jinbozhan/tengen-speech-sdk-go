@@ -118,9 +118,10 @@ func NewClosedEvent() *RecognitionEvent {
 
 // RecognitionResult 完整识别结果
 type RecognitionResult struct {
-	Text     string    // 完整文本
-	Segments []Segment // 分段结果
-	Duration time.Duration
+	Text     string    	    // 完整文本
+	Segments []Segment 	    // 分段结果
+	Duration time.Duration	//
+	TTFB     time.Duration 	// 首个识别结果延迟
 	Error    error
 }
 

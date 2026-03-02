@@ -26,6 +26,11 @@ type Session struct {
 	mu        sync.Mutex
 	ready     bool
 	closed    bool
+
+	// TTFB 计时
+	firstSendTime time.Time     // 首次 Send 的时间
+	ttfb          time.Duration // 首个识别结果延迟
+	ttfbDone      bool          // TTFB 是否已计算
 }
 
 // newSession 创建会话
@@ -163,6 +168,7 @@ func (s *Session) handleMessage(data []byte) {
 
 // handlePartial 处理部分识别结果
 func (s *Session) handlePartial(data []byte) {
+	s.recordTTFB()
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
 		log.Printf("[client.stt] Parse partial error: %v", err)
@@ -176,6 +182,7 @@ func (s *Session) handlePartial(data []byte) {
 
 // handleFinal 处理最终识别结果
 func (s *Session) handleFinal(data []byte) {
+	s.recordTTFB()
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
 		log.Printf("[client.stt] Parse final error: %v", err)
@@ -230,7 +237,13 @@ func (s *Session) Send(audio []byte) error {
 	// Base64编码
 	encoded := base64.StdEncoding.EncodeToString(audio)
 	msg := transport.NewAudioAppend(encoded)
-	return s.conn.SendJSON(msg)
+	if err := s.conn.SendJSON(msg); err != nil {
+		return err
+	}
+	if s.firstSendTime.IsZero() {
+		s.firstSendTime = time.Now()
+	}
+	return nil
 }
 
 // SendPCM 发送PCM音频数据（16位有符号整数，小端序）
@@ -249,6 +262,25 @@ func (s *Session) Commit() error {
 
 	msg := transport.NewInputCommit()
 	return s.conn.SendJSON(msg)
+}
+
+// recordTTFB 记录首个识别结果延迟（从首次 Send 起算）
+func (s *Session) recordTTFB() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ttfbDone || s.firstSendTime.IsZero() {
+		return
+	}
+	s.ttfb = time.Since(s.firstSendTime)
+	s.ttfbDone = true
+	log.Printf("[client.stt] TTFB: %dms", s.ttfb.Milliseconds())
+}
+
+// TTFB 返回首个识别结果的延迟时间
+func (s *Session) TTFB() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ttfb
 }
 
 // Events 返回事件channel

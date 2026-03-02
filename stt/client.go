@@ -146,9 +146,10 @@ loop:
 	// 合并文本
 	result.Text = strings.Join(texts, "")
 	result.Duration = time.Since(start)
+	result.TTFB = session.TTFB()
 
-	log.Printf("[client.stt] RecognizeFile completed: file=%s, text=%s, duration=%dms",
-		audioPath, truncateText(result.Text, 50), result.Duration.Milliseconds())
+	log.Printf("[client.stt] RecognizeFile completed: file=%s, text=%s, duration=%dms, ttfb=%dms",
+		audioPath, truncateText(result.Text, 50), result.Duration.Milliseconds(), result.TTFB.Milliseconds())
 
 	return result, result.Error
 }
@@ -313,6 +314,7 @@ loop:
 	// 合并文本
 	result.Text = strings.Join(texts, "")
 	result.Duration = time.Since(start)
+	result.TTFB = session.TTFB()
 
 	return result, result.Error
 }

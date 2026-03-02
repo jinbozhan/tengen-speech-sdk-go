@@ -211,6 +211,7 @@ func runStreamingSTT(ctx context.Context, audioPath string) error {
 	// ========== Step 5: 输出最终结果 ==========
 	fmt.Println("------------------------------------------")
 	fmt.Println()
+	fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 	fmt.Println("最终识别结果:")
 	if len(texts) > 0 {
 		fmt.Printf("  %s\n", strings.Join(texts, ""))
@@ -298,7 +299,8 @@ func handleSTTEvents(session *stt.Session) ([]string, error) {
 
 		case stt.EventFinal:
 			// 最终识别结果 - 换行显示
-			fmt.Printf("\r[最终] %s\n", event.Text)
+			fmt.Printf("\r[最终] [%.3fs - %.3fs] %s\n",
+				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
 		case stt.EventError:
