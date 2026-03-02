@@ -16,6 +16,20 @@ import (
 	"github.com/jinbozhan/tengen-speech-sdk-go/stt"
 )
 
+const (
+	// 超时
+	connectTimeout = 30 * time.Second  // WebSocket 连接超时
+	readTimeout    = 120 * time.Second // 读超时
+	writeTimeout   = 10 * time.Second  // 写超时
+
+	// 音频发送
+	chunkDurationMs = 100                  // 每块音频时长（毫秒）
+	sendInterval    = 1 * time.Millisecond // 块间发送间隔
+
+	// WAV
+	wavHeaderSize = 44 // WAV 文件头字节数
+)
+
 var (
 	gatewayURL string
 	provider   string
@@ -75,9 +89,9 @@ func main() {
 		Language:       language,
 		SampleRate:     sampleRate,
 		AudioFormat:    "pcm",
-		ConnectTimeout: 30 * time.Second,
-		ReadTimeout:    120 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ConnectTimeout: connectTimeout,
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
 	}
 
 	// 创建客户端
@@ -130,7 +144,7 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 
 	// 跳过WAV头
 	if strings.HasSuffix(strings.ToLower(audioPath), ".wav") {
-		file.Seek(44, io.SeekStart)
+		file.Seek(wavHeaderSize, io.SeekStart)
 	}
 
 	// 启动发送音频的goroutine
@@ -179,8 +193,8 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 
 // sendAudio 发送音频数据到会话
 func sendAudio(session *stt.Session, reader io.Reader, sampleRate int) error {
-	// 100ms音频块 @ sampleRate, 16-bit = sampleRate * 2 / 10 字节
-	chunkSize := sampleRate * 2 / 10
+	// 100ms音频块 @ sampleRate, 16-bit
+	chunkSize := sampleRate * 2 * chunkDurationMs / 1000
 	buf := make([]byte, chunkSize)
 
 	for {
@@ -195,8 +209,8 @@ func sendAudio(session *stt.Session, reader io.Reader, sampleRate int) error {
 			if err := session.Send(buf[:n]); err != nil {
 				return err
 			}
-			// 模拟实时发送速度
-			time.Sleep(100 * time.Millisecond)
+			// 控制发送节奏
+			time.Sleep(sendInterval)
 		}
 	}
 

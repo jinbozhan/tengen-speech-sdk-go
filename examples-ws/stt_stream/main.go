@@ -30,6 +30,20 @@ import (
 	"github.com/jinbozhan/tengen-speech-sdk-go/stt"
 )
 
+const (
+	// 超时
+	connectTimeout = 30 * time.Second  // WebSocket 连接超时
+	readTimeout    = 120 * time.Second // 读超时
+	writeTimeout   = 10 * time.Second  // 写超时
+
+	// 音频发送
+	chunkDurationMs = 100               // 每块音频时长（毫秒）
+	sendInterval    = 1 * time.Millisecond // 块间发送间隔
+
+	// WAV
+	wavHeaderSize = 44 // WAV 文件头字节数
+)
+
 // 命令行参数
 var (
 	gatewayURL string
@@ -136,9 +150,9 @@ func runStreamingSTT(ctx context.Context, audioPath string) error {
 		Language:       language,
 		SampleRate:     sampleRate,
 		AudioFormat:    "pcm",
-		ConnectTimeout: 30 * time.Second,
-		ReadTimeout:    120 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ConnectTimeout: connectTimeout,
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
 	}
 
 	client, err := stt.NewClient(config)
@@ -160,7 +174,7 @@ func runStreamingSTT(ctx context.Context, audioPath string) error {
 
 	// 跳过 WAV 文件头（如果是 WAV 格式）
 	if strings.HasSuffix(strings.ToLower(audioPath), ".wav") {
-		file.Seek(44, io.SeekStart)
+		file.Seek(wavHeaderSize, io.SeekStart)
 		fmt.Println("检测到 WAV 格式，跳过 44 字节文件头")
 	}
 
@@ -237,7 +251,7 @@ func runStreamingSTT(ctx context.Context, audioPath string) error {
 func sendAudioChunks(session *stt.Session, file *os.File, sampleRate int) error {
 	// 计算每块大小: 100ms 音频 @ 16-bit PCM
 	// 16kHz: 16000 samples/sec * 2 bytes/sample * 0.1 sec = 3200 bytes
-	chunkSize := sampleRate * 2 / 10
+	chunkSize := sampleRate * 2 * chunkDurationMs / 1000
 	buf := make([]byte, chunkSize)
 
 	chunkCount := 0
@@ -262,8 +276,8 @@ func sendAudioChunks(session *stt.Session, file *os.File, sampleRate int) error 
 			chunkCount++
 			totalBytes += int64(n)
 
-			// 模拟实时发送速度
-			time.Sleep(100 * time.Millisecond)
+			// 控制发送节奏
+			time.Sleep(sendInterval)
 		}
 	}
 
