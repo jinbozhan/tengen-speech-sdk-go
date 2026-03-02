@@ -317,6 +317,10 @@ func handleSTTEvents(session *stt.Session) ([]string, error) {
 				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
+		case stt.EventInputDone:
+			// 识别完成，正常退出
+			return finalTexts, lastErr
+
 		case stt.EventError:
 			// 识别错误
 			fmt.Printf("\r[错误] %v\n", event.Error)
