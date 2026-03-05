@@ -149,7 +149,7 @@ func printConfig(texts []string) {
 	fmt.Println("  TTS 多轮流式合成")
 	fmt.Println("==========================================")
 	fmt.Println()
-	fmt.Printf("配置: provider=%s, voice=%s, speed=%.1f\n", provider, voiceID, speed)
+	fmt.Printf("配置: provider=%s, voice=%s, speed=%.1f, pitch=%.1f, volume=%.1f\n", provider, voiceID, speed, pitch, volume)
 	fmt.Printf("文本: %d 段\n", len(texts))
 	fmt.Println()
 }
