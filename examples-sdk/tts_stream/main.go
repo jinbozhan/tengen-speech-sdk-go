@@ -45,7 +45,7 @@ func init() {
 	flag.StringVar(&voiceID, "voice", "loongstella", "Voice ID")
 	flag.StringVar(&language, "language", "", "Language code for text normalization (e.g. en-NG, sw-TZ)")
 	flag.Float64Var(&speed, "speed", 1.0, "Speaking speed (0.5-2.0)")
-	flag.Float64Var(&pitch, "pitch", 1.0, "Pitch (-10 to 10, default 1.0)")
+	flag.Float64Var(&pitch, "pitch", 1.0, "Voice pitch (0.5-2.0)")
 	flag.Float64Var(&volume, "volume", 1.0, "Volume (0.0-1.0)")
 	flag.StringVar(&output, "output", "output.wav", "Output WAV file")
 	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
