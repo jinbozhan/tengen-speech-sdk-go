@@ -109,27 +109,6 @@ func main() {
 	fmt.Printf("  Audio File: %s\n", audioFile)
 	fmt.Println()
 
-	start := time.Now()
-
-	err = recognizeStreaming(ctx, client, audioFile)
-
-	if err != nil {
-		log.Fatalf("识别失败: %v", err)
-	}
-
-	elapsed := time.Since(start)
-	fmt.Printf("\n识别完成! 耗时: %dms\n", elapsed.Milliseconds())
-}
-
-// recognizeStreaming 流式识别并显示部分结果
-func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath string) error {
-	// 打开音频文件
-	file, err := os.Open(audioPath)
-	if err != nil {
-		return fmt.Errorf("打开文件: %w", err)
-	}
-	defer file.Close()
-
 	// 创建流式会话
 	opts := &stt.StreamOptions{
 		Language:    language,
@@ -138,12 +117,19 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 	}
 	session, err := client.RecognizeStream(ctx, opts)
 	if err != nil {
-		return fmt.Errorf("创建会话: %w", err)
+		log.Fatalf("创建会话失败: %v", err)
 	}
 	defer session.Close()
 
+	// 打开音频文件
+	file, err := os.Open(audioFile)
+	if err != nil {
+		log.Fatalf("打开文件失败: %v", err)
+	}
+	defer file.Close()
+
 	// 跳过WAV头
-	if strings.HasSuffix(strings.ToLower(audioPath), ".wav") {
+	if strings.HasSuffix(strings.ToLower(audioFile), ".wav") {
 		file.Seek(wavHeaderSize, io.SeekStart)
 	}
 
@@ -153,35 +139,20 @@ func recognizeStreaming(ctx context.Context, client *stt.Client, audioPath strin
 		sendDone <- sendAudio(session, file, sampleRate)
 	}()
 
-	// 收集最终结果
-	var finalTexts []string
+	start := time.Now()
 
-	// 处理识别事件
-	fmt.Println("识别中...")
-loop:
-	for event := range session.Events() {
-		switch event.Type {
-		case stt.EventPartial:
-			// 显示部分结果（覆盖同一行）
-			fmt.Printf("\r[部分] %s", event.Text)
-		case stt.EventFinal:
-			// 显示最终结果（换行），包含时间戳
-			fmt.Printf("\r[最终] [%.3fs - %.3fs] %s\n",
-				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
-			finalTexts = append(finalTexts, event.Text)
-		case stt.EventError:
-			return fmt.Errorf("识别错误: %v", event.Error)
-		case stt.EventInputDone:
-			break loop
-		case stt.EventClosed:
-			break loop
-		}
+	// 流式识别
+	finalTexts, err := recognizeStreaming(session)
+	if err != nil {
+		log.Fatalf("识别失败: %v", err)
 	}
 
 	// 等待发送完成
 	if err := <-sendDone; err != nil {
-		return fmt.Errorf("发送音频: %w", err)
+		log.Fatalf("发送音频失败: %v", err)
 	}
+
+	elapsed := time.Since(start)
 
 	// 显示完整结果
 	if len(finalTexts) > 0 {
@@ -191,7 +162,32 @@ loop:
 		fmt.Println(strings.Join(finalTexts, ""))
 	}
 
-	return nil
+	fmt.Printf("\n识别完成! 耗时: %dms\n", elapsed.Milliseconds())
+}
+
+// recognizeStreaming 流式识别，接收事件并返回最终识别文本
+func recognizeStreaming(session *stt.Session) ([]string, error) {
+	var finalTexts []string
+
+loop:
+	for event := range session.Events() {
+		switch event.Type {
+		case stt.EventPartial:
+			fmt.Printf("\r[部分] %s", event.Text)
+		case stt.EventFinal:
+			fmt.Printf("\r[最终] [%.3fs - %.3fs] %s\n",
+				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
+			finalTexts = append(finalTexts, event.Text)
+		case stt.EventError:
+			return finalTexts, fmt.Errorf("识别错误: %v", event.Error)
+		case stt.EventInputDone:
+			break loop
+		case stt.EventClosed:
+			break loop
+		}
+	}
+
+	return finalTexts, nil
 }
 
 // sendAudio 发送音频数据到会话
