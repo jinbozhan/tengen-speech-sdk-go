@@ -21,8 +21,6 @@ const (
 	EventProcessing EventType = "processing"
 	// EventSpeechStarted 用户开始说话（VAD onset + STT partial 双重确认）
 	EventSpeechStarted EventType = "speech_started"
-	// EventSpeechStopped 用户停止说话（550ms 静音 OR stt.final）
-	EventSpeechStopped EventType = "speech_stopped"
 	// EventClosed 会话关闭
 	EventClosed EventType = "closed"
 )
@@ -117,13 +115,6 @@ func NewProcessingEvent() *RecognitionEvent {
 func NewSpeechStartedEvent() *RecognitionEvent {
 	return &RecognitionEvent{
 		Type: EventSpeechStarted,
-	}
-}
-
-// NewSpeechStoppedEvent 创建语音停止事件
-func NewSpeechStoppedEvent() *RecognitionEvent {
-	return &RecognitionEvent{
-		Type: EventSpeechStopped,
 	}
 }
 

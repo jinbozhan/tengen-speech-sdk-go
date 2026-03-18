@@ -190,10 +190,8 @@ loop:
 
 		case stt.EventSpeechStarted:
 			fmt.Println("\n[Speech] speech.started")
-		case stt.EventSpeechStopped:
-			fmt.Println("\n[Speech] speech.stopped")
 
-        // 活动心跳静默忽略
+		// 活动心跳静默忽略
 		case stt.EventProcessing:
 
 		case stt.EventInputDone:

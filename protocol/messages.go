@@ -26,7 +26,6 @@ const (
 	MessageTypeInputDone         MessageType = "input.done"
 	MessageTypeProcessing        MessageType = "processing"
 	MessageTypeSpeechStarted     MessageType = "speech.started"
-	MessageTypeSpeechStopped     MessageType = "speech.stopped"
 	MessageTypeError             MessageType = "error"
 )
 
@@ -121,11 +120,6 @@ type InputDone struct {
 
 // SpeechStarted 用户开始说话
 type SpeechStarted struct {
-	Type MessageType `json:"type"`
-}
-
-// SpeechStopped 用户停止说话
-type SpeechStopped struct {
 	Type MessageType `json:"type"`
 }
 
