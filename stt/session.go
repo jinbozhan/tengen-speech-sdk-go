@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -99,7 +99,7 @@ func (s *Session) waitReady(ctx context.Context) error {
 	s.ID = ready.SessionID
 	s.ready = true
 
-	log.Printf("[client.stt] Session ready: id=%s, provider=%s", s.ID, s.Provider)
+	slog.Info("Session ready", "component", "stt", "id", s.ID, "provider", s.Provider)
 
 	// 发送就绪事件
 	s.sendEvent(NewReadyEvent(s.ID))
@@ -146,7 +146,7 @@ func (s *Session) messageLoop(ctx context.Context) {
 func (s *Session) handleMessage(data []byte) {
 	msgType, err := transport.ParseMessageType(data)
 	if err != nil {
-		log.Printf("[client.stt] Parse message error: %v", err)
+		slog.Error("Parse message error", "component", "stt", "error", err)
 		return
 	}
 
@@ -166,7 +166,7 @@ func (s *Session) handleMessage(data []byte) {
 	case protocol.MessageTypeError:
 		s.handleError(data)
 	default:
-		log.Printf("[client.stt] Unknown message type: %s", msgType)
+		slog.Warn("Unknown message type", "component", "stt", "type", msgType)
 	}
 }
 
@@ -175,7 +175,7 @@ func (s *Session) handlePartial(data []byte) {
 	s.recordTTFB()
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
-		log.Printf("[client.stt] Parse partial error: %v", err)
+		slog.Error("Parse partial error", "component", "stt", "error", err)
 		return
 	}
 
@@ -189,7 +189,7 @@ func (s *Session) handleFinal(data []byte) {
 	s.recordTTFB()
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
-		log.Printf("[client.stt] Parse final error: %v", err)
+		slog.Error("Parse final error", "component", "stt", "error", err)
 		return
 	}
 
@@ -206,7 +206,7 @@ func (s *Session) handleFinal(data []byte) {
 func (s *Session) handleError(data []byte) {
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
-		log.Printf("[client.stt] Parse error message error: %v", err)
+		slog.Error("Parse error message error", "component", "stt", "error", err)
 		return
 	}
 
@@ -222,7 +222,7 @@ func (s *Session) sendEvent(event *RecognitionEvent) {
 	case <-s.closeCh:
 	default:
 		// 缓冲区满，丢弃事件
-		log.Printf("[client.stt] Event buffer full, dropping event: %s", event.Type)
+		slog.Error("Event buffer full, dropping event", "component", "stt", "event_type", event.Type)
 	}
 }
 
@@ -277,7 +277,7 @@ func (s *Session) recordTTFB() {
 	}
 	s.ttfb = time.Since(s.firstSendTime)
 	s.ttfbDone = true
-	log.Printf("[client.stt] TTFB: %dms", s.ttfb.Milliseconds())
+	slog.Info("TTFB", "component", "stt", "ttfb_ms", s.ttfb.Milliseconds())
 }
 
 // TTFB 返回首个识别结果的延迟时间
@@ -311,14 +311,14 @@ func (s *Session) Close() error {
 			// Gateway 已正常关闭连接
 		case <-time.After(2 * time.Second):
 			// 超时，强制关闭
-			log.Printf("[client.stt] Close timeout, forcing close: id=%s", s.ID)
+			slog.Warn("Close timeout, forcing close", "component", "stt", "id", s.ID)
 		}
 
 		// 关闭 session 自己的 closeCh（通知 messageLoop 退出）
 		close(s.closeCh)
 		s.conn.Close()
 
-		log.Printf("[client.stt] Session closed: id=%s", s.ID)
+		slog.Info("Session closed", "component", "stt", "id", s.ID)
 	})
 	return nil
 }

@@ -111,12 +111,12 @@ go func() {
 for event := range session.Events() {
     switch event.Type {
     case stt.EventPartial:
-        fmt.Printf("\r[部分] %s", event.Text)
+        fmt.Printf("\r[Partial] %s", event.Text)
     case stt.EventFinal:
-        fmt.Printf("\r[最终] [%.3fs-%.3fs] %s\n",
+        fmt.Printf("\r[Final] [%.3fs-%.3fs] %s\n",
             event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
     case stt.EventError:
-        log.Fatal(event.Error)
+        fmt.Printf("[Error] %v\n", event.Error)
     case stt.EventInputDone, stt.EventClosed:
         break
     }

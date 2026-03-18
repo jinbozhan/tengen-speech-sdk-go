@@ -7,10 +7,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
+	"github.com/jinbozhan/tengen-speech-sdk-go/logging"
 	"github.com/jinbozhan/tengen-speech-sdk-go/tts"
 )
 
@@ -43,23 +43,25 @@ func main() {
 	flag.IntVar(&iterations, "iterations", 1, "Number of iterations to run")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "TTS Detailed Timing - TTS请求时延详细分析工具\n\n")
-		fmt.Fprintf(os.Stderr, "用法:\n")
+		fmt.Fprintf(os.Stderr, "TTS Detailed Timing - TTS request latency analysis tool\n\n")
+		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "示例:\n")
-		fmt.Fprintf(os.Stderr, "  # 测试Qwen Realtime\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  # Test Qwen Realtime\n")
 		fmt.Fprintf(os.Stderr, "  %s -provider qwen_realtime -voice en-NG-OkunNeutral -text \"Hello world\" -iterations 3\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # 测试Azure TTS\n")
+		fmt.Fprintf(os.Stderr, "  # Test Azure TTS\n")
 		fmt.Fprintf(os.Stderr, "  %s -provider azure -voice en-NG-EzinneNeural -iterations 5\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "选项:\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
 
 	flag.Parse()
+	logging.Setup(logging.LevelInfo)
 
 	// 检查参数
 	if text == "" {
-		log.Fatal("Text cannot be empty")
+		logging.Error("Text cannot be empty")
+		os.Exit(1)
 	}
 
 	fmt.Printf("\n%s========================================%s\n", colorCyan, colorReset)
@@ -222,50 +224,50 @@ func printDetailedTimings(result *RequestResult) {
 
 	if !result.ConnectedAt.IsZero() {
 		relativeMs := result.ConnectedAt.Sub(result.StartTime).Milliseconds()
-		fmt.Printf("  %s[CONNECTED]%s    %s (+%dms) - WebSocket建连完成\n",
+		fmt.Printf("  %s[CONNECTED]%s    %s (+%dms) - WebSocket connected\n",
 			colorBlue, colorReset, result.ConnectedAt.Format("15:04:05.000"), relativeMs)
 	}
 
 	if !result.CommitSentAt.IsZero() {
 		relativeMs := result.CommitSentAt.Sub(result.StartTime).Milliseconds()
-		fmt.Printf("  %s[COMMIT_SENT]%s  %s (+%dms) - 文本提交发送\n",
+		fmt.Printf("  %s[COMMIT_SENT]%s  %s (+%dms) - Text commit sent\n",
 			colorYellow, colorReset, result.CommitSentAt.Format("15:04:05.000"), relativeMs)
 	}
 
 	if !result.FirstByteAt.IsZero() {
 		relativeMs := result.FirstByteAt.Sub(result.StartTime).Milliseconds()
-		fmt.Printf("  %s[FIRST_CHUNK]%s  %s (+%dms) - 首个音频块收到\n",
+		fmt.Printf("  %s[FIRST_CHUNK]%s  %s (+%dms) - First audio chunk received\n",
 			colorGreen, colorReset, result.FirstByteAt.Format("15:04:05.000"), relativeMs)
 	}
 
 	if !result.CompleteAt.IsZero() {
 		relativeMs := result.CompleteAt.Sub(result.StartTime).Milliseconds()
-		fmt.Printf("  %s[COMPLETE]%s     %s (+%dms) - 合成完成\n",
+		fmt.Printf("  %s[COMPLETE]%s     %s (+%dms) - Synthesis complete\n",
 			colorCyan, colorReset, result.CompleteAt.Format("15:04:05.000"), relativeMs)
 	}
 
-	// 打印关键指标
-	fmt.Printf("\n  %s关键指标:%s\n", colorCyan, colorReset)
-	fmt.Printf("    • Connect Time:    %s%6d ms%s (TCP+TLS+WebSocket握手)\n",
+	// Key metrics
+	fmt.Printf("\n  %sKey Metrics:%s\n", colorCyan, colorReset)
+	fmt.Printf("    • Connect Time:    %s%6d ms%s (TCP+TLS+WebSocket handshake)\n",
 		colorBlue, result.ConnectMs, colorReset)
-	fmt.Printf("    • Synthesis Time:  %s%6d ms%s (commit发送到首包)\n",
+	fmt.Printf("    • Synthesis Time:  %s%6d ms%s (commit to first chunk)\n",
 		colorYellow, result.SynthesisMs, colorReset)
-	fmt.Printf("    • TTFB:            %s%6d ms%s (请求开始到首包)\n",
+	fmt.Printf("    • TTFB:            %s%6d ms%s (request start to first chunk)\n",
 		colorGreen, result.TTFBMs, colorReset)
-	fmt.Printf("    • Total Time:      %s%6d ms%s (完整合成时间)\n",
+	fmt.Printf("    • Total Time:      %s%6d ms%s (total synthesis time)\n",
 		colorCyan, result.TotalMs, colorReset)
 	fmt.Printf("    • Total Bytes:     %d bytes (%d chunks)\n",
 		result.TotalBytes, result.ChunkCount)
 
-	// 时间分解
-	fmt.Printf("\n  %s时间分解:%s\n", colorCyan, colorReset)
+	// Time breakdown
+	fmt.Printf("\n  %sTime Breakdown:%s\n", colorCyan, colorReset)
 	configMs := result.CommitSentAt.Sub(result.ConnectedAt).Milliseconds()
 	if configMs > 0 {
-		fmt.Printf("    • 建连阶段:        %6d ms (%.1f%%)\n",
+		fmt.Printf("    • Connect:         %6d ms (%.1f%%)\n",
 			result.ConnectMs, float64(result.ConnectMs)/float64(result.TTFBMs)*100)
-		fmt.Printf("    • 配置阶段:        %6d ms (%.1f%%) (session.config + text.append)\n",
+		fmt.Printf("    • Config:          %6d ms (%.1f%%) (session.config + text.append)\n",
 			configMs, float64(configMs)/float64(result.TTFBMs)*100)
-		fmt.Printf("    • 合成阶段:        %6d ms (%.1f%%) (commit到首包)\n",
+		fmt.Printf("    • Synthesis:       %6d ms (%.1f%%) (commit to first chunk)\n",
 			result.SynthesisMs, float64(result.SynthesisMs)/float64(result.TTFBMs)*100)
 	}
 }

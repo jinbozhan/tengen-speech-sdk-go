@@ -4,13 +4,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/jinbozhan/tengen-speech-sdk-go/logging"
 	"github.com/jinbozhan/tengen-speech-sdk-go/tts"
 )
 
@@ -81,13 +81,14 @@ func (b *Benchmark) Run(ctx context.Context) error {
 		totalConcurrency += v.Concurrency
 	}
 
-	log.Printf("Starting benchmark:")
-	log.Printf("  Gateway:     %s", b.config.GatewayURL)
-	log.Printf("  Provider:    %s", b.config.Provider)
-	log.Printf("  Voices:      %d types", len(b.config.Voices))
-	log.Printf("  Concurrency: %d total", totalConcurrency)
-	log.Printf("  Requests:    %d per worker, %d total", b.config.Requests, b.totalRequests)
-	log.Printf("  Save Audio:  %v", b.config.SaveAudio)
+	logging.Info("Starting benchmark",
+		"gateway", b.config.GatewayURL,
+		"provider", b.config.Provider,
+		"voices", len(b.config.Voices),
+		"concurrency", totalConcurrency,
+		"requests_per_worker", b.config.Requests,
+		"total_requests", b.totalRequests,
+		"save_audio", b.config.SaveAudio)
 
 	b.collector.Start()
 
@@ -109,7 +110,7 @@ func (b *Benchmark) Run(ctx context.Context) error {
 			workerID++
 
 			if b.config.Verbose {
-				log.Printf("Started worker %d for voice %s", workerID-1, voice.DisplayID)
+				logging.Info("Started worker", "worker_id", workerID-1, "voice", voice.DisplayID)
 			}
 		}
 	}
@@ -151,8 +152,7 @@ func (b *Benchmark) runWorker(ctx context.Context, wg *sync.WaitGroup, workerID 
 			if !metrics.Success {
 				status = fmt.Sprintf("FAIL: %s", metrics.Error)
 			}
-			log.Printf("Worker %d req %d: %s, TTFB=%dms, Total=%dms",
-				workerID, reqID, status, metrics.TTFBMs, metrics.TotalMs)
+			logging.Info("Worker request completed", "worker_id", workerID, "req_id", reqID, "status", status, "ttfb_ms", metrics.TTFBMs, "total_ms", metrics.TotalMs)
 		}
 	}
 }
@@ -169,8 +169,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 	// 检查是否启用详细时间戳打印
 	verboseTiming := os.Getenv("VERBOSE_TIMING") == "1"
 	if verboseTiming {
-		log.Printf("[START] Worker=%d Req=%d Voice=%s Time=%s",
-			workerID, reqID, voiceID, metrics.StartTime.Format("2006-01-02 15:04:05.000"))
+		logging.Info("Request start", "worker_id", workerID, "req_id", reqID, "voice", voiceID, "time", metrics.StartTime.Format("2006-01-02 15:04:05.000"))
 	}
 
 	// 获取测试文本
@@ -192,7 +191,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 
 	// 创建客户端
 	if verboseTiming {
-		log.Printf("[CONNECT_START] Worker=%d Req=%d", workerID, reqID)
+		logging.Info("Connect start", "worker_id", workerID, "req_id", reqID)
 	}
 	client, err := tts.NewClient(clientConfig)
 	if err != nil {
@@ -218,8 +217,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 	metrics.ConnectedAt = stream.ConnectedAt()
 
 	if verboseTiming && !metrics.ConnectedAt.IsZero() {
-		log.Printf("[CONNECTED] Worker=%d Req=%d ConnectMs=%dms Time=%s",
-			workerID, reqID, metrics.ConnectMs, metrics.ConnectedAt.Format("2006-01-02 15:04:05.000"))
+		logging.Info("Connected", "worker_id", workerID, "req_id", reqID, "connect_ms", metrics.ConnectMs, "time", metrics.ConnectedAt.Format("2006-01-02 15:04:05.000"))
 	}
 
 	// 获取 commit 发送时间（用于计算 SynthesisMs）
@@ -227,8 +225,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 
 	if verboseTiming && !commitSentAt.IsZero() {
 		commitDelayMs := commitSentAt.Sub(metrics.StartTime).Milliseconds()
-		log.Printf("[COMMIT_SENT] Worker=%d Req=%d CommitDelayMs=%dms Time=%s",
-			workerID, reqID, commitDelayMs, commitSentAt.Format("2006-01-02 15:04:05.000"))
+		logging.Info("Commit sent", "worker_id", workerID, "req_id", reqID, "commit_delay_ms", commitDelayMs, "time", commitSentAt.Format("2006-01-02 15:04:05.000"))
 	}
 
 	// 接收音频数据
@@ -268,9 +265,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 				}
 
 				if verboseTiming {
-					log.Printf("[FIRST_CHUNK] Worker=%d Req=%d TTFB=%dms SynthesisMs=%dms ChunkSize=%d Time=%s",
-						workerID, reqID, metrics.TTFBMs, metrics.SynthesisMs, n,
-						metrics.FirstByteAt.Format("2006-01-02 15:04:05.000"))
+					logging.Info("First chunk", "worker_id", workerID, "req_id", reqID, "ttfb_ms", metrics.TTFBMs, "synthesis_ms", metrics.SynthesisMs, "chunk_size", n, "time", metrics.FirstByteAt.Format("2006-01-02 15:04:05.000"))
 				}
 				firstChunk = false
 			}
@@ -288,9 +283,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 	metrics.TotalMs = metrics.CompleteAt.Sub(metrics.StartTime).Milliseconds()
 
 	if verboseTiming && !metrics.CompleteAt.IsZero() {
-		log.Printf("[COMPLETE] Worker=%d Req=%d TotalMs=%dms TotalBytes=%d ChunkCount=%d Time=%s",
-			workerID, reqID, metrics.TotalMs, metrics.TotalBytes, metrics.ChunkCount,
-			metrics.CompleteAt.Format("2006-01-02 15:04:05.000"))
+		logging.Info("Request complete", "worker_id", workerID, "req_id", reqID, "total_ms", metrics.TotalMs, "total_bytes", metrics.TotalBytes, "chunk_count", metrics.ChunkCount, "time", metrics.CompleteAt.Format("2006-01-02 15:04:05.000"))
 	}
 
 	// 检查流错误
@@ -305,7 +298,7 @@ func (b *Benchmark) executeRequest(ctx context.Context, workerID, reqID int, voi
 		if b.config.SaveAudio && len(audioData) > 0 {
 			audioFile, err := b.saveAudio(voiceID, workerID, reqID, audioData)
 			if err != nil {
-				log.Printf("Warning: failed to save audio: %v", err)
+				logging.Warn("Failed to save audio", "error", err)
 			} else {
 				metrics.AudioFile = audioFile
 			}
@@ -344,8 +337,7 @@ func (b *Benchmark) reportProgress(done chan struct{}) {
 			completed := atomic.LoadInt64(&b.completedReqs)
 			active := atomic.LoadInt64(&b.activeWorkers)
 			percent := float64(completed) / float64(b.totalRequests) * 100
-			log.Printf("Progress: %d/%d (%.1f%%) completed, %d active workers",
-				completed, b.totalRequests, percent, active)
+			logging.Info("Progress", "completed", completed, "total", b.totalRequests, "percent", fmt.Sprintf("%.1f%%", percent), "active_workers", active)
 		}
 	}
 }

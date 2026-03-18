@@ -6,13 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/jinbozhan/tengen-speech-sdk-go/logging"
 	"github.com/jinbozhan/tengen-speech-sdk-go/stt"
 )
 
@@ -23,19 +23,19 @@ const (
 	writeTimeout   = 10 * time.Second  // 写超时
 
 	// 音频发送
-	chunkDurationMs = 100                  // 每块音频时长（毫秒）
-	sendInterval    = 1 * time.Millisecond // 块间发送间隔
+	chunkDurationMs = 100 // 每块音频时长（毫秒）
 
 	// WAV
 	wavHeaderSize = 44 // WAV 文件头字节数
 )
 
 var (
-	gatewayURL string
-	provider   string
-	apiKey     string
-	language   string
-	sampleRate int
+	gatewayURL   string
+	provider     string
+	apiKey       string
+	language     string
+	sampleRate   int
+	sendInterval int
 )
 
 func init() {
@@ -44,10 +44,12 @@ func init() {
 	flag.StringVar(&apiKey, "apikey", "", "API Key for authentication")
 	flag.StringVar(&language, "language", "zh-CN", "Recognition language")
 	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
+	flag.IntVar(&sendInterval, "send-interval", chunkDurationMs, "Send interval in ms (default matches chunk duration for real-time simulation)")
 }
 
 func main() {
 	flag.Parse()
+	logging.Setup(logging.LevelInfo)
 
 	// 获取音频文件路径
 	audioFile := flag.Arg(0)
@@ -65,7 +67,8 @@ func main() {
 
 	// 检查文件是否存在
 	if _, err := os.Stat(audioFile); os.IsNotExist(err) {
-		log.Fatalf("音频文件不存在: %s", audioFile)
+		logging.Error("Audio file not found", "file", audioFile)
+		os.Exit(1)
 	}
 
 	// 创建带取消的context
@@ -77,7 +80,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		fmt.Println("\n正在取消...")
+		fmt.Println("\nCancelling...")
 		cancel()
 	}()
 
@@ -97,11 +100,12 @@ func main() {
 	// 创建客户端
 	client, err := stt.NewClient(config)
 	if err != nil {
-		log.Fatalf("创建客户端失败: %v", err)
+		logging.Error("Failed to create client", "error", err)
+		os.Exit(1)
 	}
 	defer client.Close()
 
-	fmt.Printf("STT配置:\n")
+	fmt.Printf("STT Config:\n")
 	fmt.Printf("  Gateway: %s\n", gatewayURL)
 	fmt.Printf("  Provider: %s\n", provider)
 	fmt.Printf("  Language: %s\n", language)
@@ -117,14 +121,16 @@ func main() {
 	}
 	session, err := client.RecognizeStream(ctx, opts)
 	if err != nil {
-		log.Fatalf("创建会话失败: %v", err)
+		logging.Error("Failed to create session", "error", err)
+		os.Exit(1)
 	}
 	defer session.Close()
 
 	// 打开音频文件
 	file, err := os.Open(audioFile)
 	if err != nil {
-		log.Fatalf("打开文件失败: %v", err)
+		logging.Error("Failed to open file", "error", err)
+		os.Exit(1)
 	}
 	defer file.Close()
 
@@ -144,12 +150,14 @@ func main() {
 	// 流式识别
 	finalTexts, err := recognizeStreaming(session)
 	if err != nil {
-		log.Fatalf("识别失败: %v", err)
+		logging.Error("Recognition failed", "error", err)
+		os.Exit(1)
 	}
 
 	// 等待发送完成
 	if err := <-sendDone; err != nil {
-		log.Fatalf("发送音频失败: %v", err)
+		logging.Error("Failed to send audio", "error", err)
+		os.Exit(1)
 	}
 
 	elapsed := time.Since(start)
@@ -158,11 +166,11 @@ func main() {
 	if len(finalTexts) > 0 {
 		fmt.Println()
 		fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
-		fmt.Println("完整识别结果:")
+		fmt.Println("Final result:")
 		fmt.Println(strings.Join(finalTexts, ""))
 	}
 
-	fmt.Printf("\n识别完成! 耗时: %dms\n", elapsed.Milliseconds())
+	fmt.Printf("\nRecognition complete! Duration: %dms\n", elapsed.Milliseconds())
 }
 
 // recognizeStreaming 流式识别，接收事件并返回最终识别文本
@@ -173,21 +181,29 @@ loop:
 	for event := range session.Events() {
 		switch event.Type {
 		case stt.EventPartial:
-			fmt.Printf("\r[部分] %s", event.Text)
+			fmt.Printf("\n[Partial] %s", event.Text)
+
 		case stt.EventFinal:
-			fmt.Printf("\r[最终] [%.3fs - %.3fs] %s\n",
+			fmt.Printf("\n[Final] [%.3fs - %.3fs] %s\n",
 				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
 			finalTexts = append(finalTexts, event.Text)
+
 		case stt.EventSpeechStarted:
-			fmt.Println("\r[语音] 检测到说话")
+			fmt.Println("\n[Speech] speech.started")
 		case stt.EventSpeechStopped:
-			fmt.Println("\r[语音] 说话结束")
-		case stt.EventError:
-			return finalTexts, fmt.Errorf("识别错误: %v", event.Error)
+			fmt.Println("\n[Speech] speech.stopped")
+
+        // 活动心跳静默忽略
+		case stt.EventProcessing:
+
 		case stt.EventInputDone:
 			break loop
+
 		case stt.EventClosed:
 			break loop
+
+		case stt.EventError:
+			fmt.Printf("\n[Error] %v\n", event.Error)
 		}
 	}
 
@@ -213,7 +229,7 @@ func sendAudio(session *stt.Session, reader io.Reader, sampleRate int) error {
 				return err
 			}
 			// 控制发送节奏
-			time.Sleep(sendInterval)
+			time.Sleep(time.Duration(sendInterval) * time.Millisecond)
 		}
 	}
 

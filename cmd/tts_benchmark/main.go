@@ -14,12 +14,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/jinbozhan/tengen-speech-sdk-go/logging"
 )
 
 func main() {
@@ -48,31 +49,33 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", false, "Verbose logging")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "TTS Benchmark - Gateway TTS 并发测试工具\n\n")
-		fmt.Fprintf(os.Stderr, "用法:\n")
+		fmt.Fprintf(os.Stderr, "TTS Benchmark - Gateway TTS concurrent testing tool\n\n")
+		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "示例:\n")
-		fmt.Fprintf(os.Stderr, "  # 快速冒烟测试\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  # Quick smoke test\n")
 		fmt.Fprintf(os.Stderr, "  %s -voices \"en-NG-RoseSerious:2,en-NG-OkunSerious:2\" -requests 5\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # 完整并发测试 (80并发，每worker 50请求)\n")
+		fmt.Fprintf(os.Stderr, "  # Full concurrent test (80 concurrent, 50 requests per worker)\n")
 		fmt.Fprintf(os.Stderr, "  %s -voices \"en-NG-RoseSerious:40,en-NG-OkunSerious:40\" -requests 50\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  # 保存音频文件\n")
+		fmt.Fprintf(os.Stderr, "  # Save audio files\n")
 		fmt.Fprintf(os.Stderr, "  %s -save-audio -output ./results\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "选项:\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
 
 	flag.Parse()
+	logging.Setup(logging.LevelInfo)
 
 	// 解析 voice 配置
 	voices, err := parseVoiceConfig(voiceConfig)
 	if err != nil {
-		log.Fatalf("Invalid voice config: %v", err)
+		logging.Error("Invalid voice config", "error", err)
+		os.Exit(1)
 	}
 
 	// 检查 API Key
 	if apiKey == "" {
-		log.Println("Warning: No API key provided. Set -api-key or GATEWAY_API_KEY environment variable.")
+		logging.Warn("No API key provided. Set -api-key or GATEWAY_API_KEY environment variable.")
 	}
 
 	config := &BenchmarkConfig{
@@ -111,16 +114,18 @@ func main() {
 	startTime := time.Now()
 
 	if err := benchmark.Run(ctx); err != nil {
-		log.Fatalf("Benchmark failed: %v", err)
+		logging.Error("Benchmark failed", "error", err)
+		os.Exit(1)
 	}
 
 	elapsed := time.Since(startTime)
-	log.Printf("Benchmark completed in %v", elapsed.Round(time.Second))
+	logging.Info("Benchmark completed", "duration", elapsed.Round(time.Second))
 
 	// 生成报告
 	reporter := NewReporter(config.OutputDir)
 	if err := reporter.GenerateReport(benchmark.Collector(), config); err != nil {
-		log.Fatalf("Failed to generate report: %v", err)
+		logging.Error("Failed to generate report", "error", err)
+		os.Exit(1)
 	}
 }
 

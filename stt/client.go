@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"strings"
@@ -138,7 +138,7 @@ loop:
 			}
 
 		case <-idleTimer.C:
-			log.Printf("[client.stt] Idle timeout %v after last event, closing (no input.done received)", recognizeIdleTimeout)
+			slog.Warn("Idle timeout after last event, closing", "component", "stt", "timeout", recognizeIdleTimeout)
 			break loop
 		}
 	}
@@ -148,8 +148,7 @@ loop:
 	result.Duration = time.Since(start)
 	result.TTFB = session.TTFB()
 
-	log.Printf("[client.stt] RecognizeFile completed: file=%s, text=%s, duration=%dms, ttfb=%dms",
-		audioPath, truncateText(result.Text, 50), result.Duration.Milliseconds(), result.TTFB.Milliseconds())
+	slog.Info("RecognizeFile completed", "component", "stt", "file", audioPath, "text", truncateText(result.Text, 50), "duration_ms", result.Duration.Milliseconds(), "ttfb_ms", result.TTFB.Milliseconds())
 
 	return result, result.Error
 }
@@ -306,7 +305,7 @@ loop:
 			}
 
 		case <-idleTimer.C:
-			log.Printf("[client.stt] Idle timeout %v after last event, closing (no input.done received)", recognizeIdleTimeout)
+			slog.Warn("Idle timeout after last event, closing", "component", "stt", "timeout", recognizeIdleTimeout)
 			break loop
 		}
 	}

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"time"
@@ -55,8 +55,7 @@ func (c *Client) SynthesizeToFile(ctx context.Context, text, outputPath string) 
 		return fmt.Errorf("write audio: %w", err)
 	}
 
-	log.Printf("[client.tts] SynthesizeToFile completed: output=%s, size=%d bytes, duration=%dms",
-		outputPath, written, time.Since(start).Milliseconds())
+	slog.Info("SynthesizeToFile completed", "component", "tts", "output", outputPath, "size", written, "duration_ms", time.Since(start).Milliseconds())
 
 	return stream.Error()
 }

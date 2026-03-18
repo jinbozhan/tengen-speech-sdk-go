@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -113,8 +113,7 @@ func (c *Conn) Connect(ctx context.Context) error {
 		go c.pingLoop()
 	}
 
-	log.Printf("[client.transport] WebSocket connected: url=%s, connect_duration=%dms",
-		c.config.URL, c.connectedAt.Sub(c.connectStartAt).Milliseconds())
+	slog.Info("WebSocket connected", "component", "transport", "url", c.config.URL, "connect_duration_ms", c.connectedAt.Sub(c.connectStartAt).Milliseconds())
 	return nil
 }
 
@@ -125,8 +124,7 @@ func (c *Conn) ConnectWithRetry(ctx context.Context) error {
 
 	for i := 0; i <= c.config.MaxReconnects; i++ {
 		if i > 0 {
-			log.Printf("[client.transport] Reconnecting attempt %d/%d, backoff=%v",
-				i, c.config.MaxReconnects, backoff)
+			slog.Info("Reconnecting", "component", "transport", "attempt", i, "max", c.config.MaxReconnects, "backoff", backoff)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -141,7 +139,7 @@ func (c *Conn) ConnectWithRetry(ctx context.Context) error {
 			return nil
 		}
 		lastErr = err
-		log.Printf("[client.transport] Connect failed: %v", err)
+		slog.Error("Connect failed", "component", "transport", "error", err)
 	}
 
 	return fmt.Errorf("connect failed after %d retries: %w", c.config.MaxReconnects, lastErr)
@@ -175,13 +173,13 @@ func (c *Conn) readLoop() {
 			default:
 				// 区分正常关闭和异常关闭
 				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-					log.Printf("[client.transport] WebSocket closed normally")
+					slog.Info("WebSocket closed normally", "component", "transport")
 					// 通过 closeOnce 安全关闭 closeCh，通知 session
 					c.closeOnce.Do(func() {
 						close(c.closeCh)
 					})
 				} else {
-					log.Printf("[client.transport] WebSocket read error: %v", err)
+					slog.Error("WebSocket read error", "component", "transport", "error", err)
 					c.errorCh <- err
 				}
 				return
@@ -209,7 +207,7 @@ func (c *Conn) pingLoop() {
 			c.mu.Lock()
 			if c.ws != nil && c.connected {
 				if err := c.ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(c.config.WriteTimeout)); err != nil {
-					log.Printf("[client.transport] Ping failed: %v", err)
+					slog.Error("Ping failed", "component", "transport", "error", err)
 				}
 			}
 			c.mu.Unlock()
@@ -324,7 +322,7 @@ func (c *Conn) Close() error {
 		c.ws.Close()
 		c.ws = nil
 		c.connected = false
-		log.Printf("[client.transport] WebSocket closed")
+		slog.Info("WebSocket closed", "component", "transport")
 	}
 	return nil
 }

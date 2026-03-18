@@ -15,7 +15,6 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jinbozhan/tengen-speech-sdk-go/logging"
 	"github.com/jinbozhan/tengen-speech-sdk-go/stt"
 )
 
@@ -70,6 +70,7 @@ type fileResult struct {
 
 func main() {
 	flag.Parse()
+	logging.Setup(logging.LevelInfo)
 
 	// 默认 sample 目录：基于可执行文件位置或当前目录
 	if sampleDir == "" {
@@ -79,10 +80,12 @@ func main() {
 	// 查找 WAV 文件
 	wavFiles, err := filepath.Glob(filepath.Join(sampleDir, "*.wav"))
 	if err != nil {
-		log.Fatalf("查找 WAV 文件失败: %v", err)
+		logging.Error("Failed to find WAV files", "error", err)
+		os.Exit(1)
 	}
 	if len(wavFiles) == 0 {
-		log.Fatalf("未找到 WAV 文件: %s/*.wav", sampleDir)
+		logging.Error("No WAV files found", "dir", sampleDir)
+		os.Exit(1)
 	}
 
 	// 排序
@@ -90,7 +93,7 @@ func main() {
 
 	// 打印配置
 	fmt.Println("==========================================")
-	fmt.Println("  VAD-Clip ASR 端到端测试")
+	fmt.Println("  VAD-Clip ASR End-to-End Test")
 	fmt.Println("==========================================")
 	fmt.Println()
 	fmt.Printf("Gateway:     %s\n", gatewayURL)
@@ -99,7 +102,7 @@ func main() {
 	fmt.Printf("Language:    %s\n", language)
 	fmt.Printf("Sample Rate: %d Hz\n", sampleRate)
 	fmt.Printf("Sample Dir:  %s\n", sampleDir)
-	fmt.Printf("文件数:      %d\n", len(wavFiles))
+	fmt.Printf("Files:       %d\n", len(wavFiles))
 	fmt.Println()
 
 	// 创建可取消的 context
@@ -110,7 +113,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		fmt.Println("\n正在取消...")
+		fmt.Println("\nCancelling...")
 		cancel()
 	}()
 
@@ -146,13 +149,13 @@ func main() {
 			preview := truncate(r.Text, textPreviewLen)
 			fmt.Printf("  Text: %s\n", preview)
 		} else {
-			fmt.Printf("  (空结果)\n")
+			fmt.Printf("  (empty)\n")
 		}
-		fmt.Printf("  耗时: %.2fs\n\n", elapsed)
+		fmt.Printf("  Elapsed: %.2fs\n\n", elapsed)
 
 		// 检查 context 是否已取消
 		if ctx.Err() != nil {
-			fmt.Println("测试已取消")
+			fmt.Println("Test cancelled")
 			break
 		}
 	}
@@ -163,9 +166,9 @@ func main() {
 	// 输出到文件
 	if outputFile != "" {
 		if err := writeMarkdownReport(outputFile, results); err != nil {
-			log.Printf("写入报告失败: %v", err)
+			logging.Warn("Failed to write report", "error", err)
 		} else {
-			fmt.Printf("\n报告已写入: %s\n", outputFile)
+			fmt.Printf("\nReport saved to: %s\n", outputFile)
 		}
 	}
 }
@@ -185,7 +188,7 @@ func recognizeFile(ctx context.Context, audioPath string) (string, []stt.Segment
 
 	client, err := stt.NewClient(config)
 	if err != nil {
-		return "", nil, fmt.Errorf("创建客户端失败: %w", err)
+		return "", nil, fmt.Errorf("create client: %w", err)
 	}
 	defer client.Close()
 
@@ -206,9 +209,9 @@ func printSummary(results []fileResult) {
 	dash := strings.Repeat("-", separatorLen)
 
 	fmt.Println(sep)
-	fmt.Println("汇总报告")
+	fmt.Println("Summary Report")
 	fmt.Println(sep)
-	fmt.Printf("%-3s %-47s %6s %6s  %s\n", "#", "文件名", "时长", "耗时", "识别结果")
+	fmt.Printf("%-3s %-47s %6s %6s  %s\n", "#", "Filename", "Dur", "Elapsed", "Result")
 	fmt.Println(dash)
 
 	okCount := 0
@@ -224,23 +227,23 @@ func printSummary(results []fileResult) {
 			okCount++
 			status = truncate(r.Text, textSummaryLen)
 		} else {
-			status = "(空)"
+			status = "(empty)"
 		}
 		fmt.Printf("%-3d %-47s %6s %6s  %s\n", i+1, shortName, dur, elp, status)
 	}
 
 	fmt.Println(dash)
-	fmt.Printf("成功: %d/%d\n", okCount, len(results))
+	fmt.Printf("Success: %d/%d\n", okCount, len(results))
 	fmt.Println()
-	fmt.Println("提示: 请检查 gateway 日志中的 VAD filter stats (speech_pct) 以确认 VAD 过滤效果")
+	fmt.Println("Note: Check gateway logs for VAD filter stats (speech_pct) to verify VAD effectiveness")
 }
 
 // writeMarkdownReport 输出 Markdown 格式报告
 func writeMarkdownReport(path string, results []fileResult) error {
 	var sb strings.Builder
 
-	sb.WriteString("# VAD-Clip ASR 测试结果\n\n")
-	sb.WriteString(fmt.Sprintf("- **日期**: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	sb.WriteString("# VAD-Clip ASR Test Results\n\n")
+	sb.WriteString(fmt.Sprintf("- **Date**: %s\n", time.Now().Format("2006-01-02 15:04:05")))
 	sb.WriteString(fmt.Sprintf("- **Gateway**: %s\n", gatewayURL))
 	sb.WriteString(fmt.Sprintf("- **Provider**: %s\n", provider))
 	sb.WriteString(fmt.Sprintf("- **Language**: %s\n", language))
@@ -253,17 +256,17 @@ func writeMarkdownReport(path string, results []fileResult) error {
 			okCount++
 		}
 	}
-	sb.WriteString(fmt.Sprintf("**成功率**: %d/%d\n\n", okCount, len(results)))
+	sb.WriteString(fmt.Sprintf("**Success Rate**: %d/%d\n\n", okCount, len(results)))
 
-	sb.WriteString("| # | 文件名 | 时长 | 耗时 | 识别结果 |\n")
-	sb.WriteString("|---|--------|------|------|----------|\n")
+	sb.WriteString("| # | Filename | Duration | Elapsed | Result |\n")
+	sb.WriteString("|---|----------|----------|---------|--------|\n")
 
 	for i, r := range results {
 		text := r.Text
 		if r.Error != "" {
 			text = "ERROR: " + r.Error
 		} else if text == "" {
-			text = "(空)"
+			text = "(empty)"
 		}
 		// 转义 Markdown 中的 pipe
 		text = strings.ReplaceAll(text, "|", "\\|")
@@ -271,7 +274,7 @@ func writeMarkdownReport(path string, results []fileResult) error {
 			i+1, r.Filename, r.DurationSec, r.ElapsedSec, text))
 	}
 
-	sb.WriteString("\n## 详细识别文本\n\n")
+	sb.WriteString("\n## Detailed Results\n\n")
 	for i, r := range results {
 		sb.WriteString(fmt.Sprintf("### %d. %s\n\n", i+1, r.Filename))
 		if r.Error != "" {
@@ -279,8 +282,8 @@ func writeMarkdownReport(path string, results []fileResult) error {
 		} else if r.Text != "" {
 			sb.WriteString(fmt.Sprintf("> %s\n\n", r.Text))
 			if len(r.Segments) > 0 {
-				sb.WriteString("| # | 开始 | 结束 | 文本 |\n")
-				sb.WriteString("|---|------|------|------|\n")
+				sb.WriteString("| # | Start | End | Text |\n")
+				sb.WriteString("|---|-------|-----|------|\n")
 				for j, seg := range r.Segments {
 					segText := strings.ReplaceAll(seg.Text, "|", "\\|")
 					sb.WriteString(fmt.Sprintf("| %d | %.3fs | %.3fs | %s |\n",
@@ -289,7 +292,7 @@ func writeMarkdownReport(path string, results []fileResult) error {
 				sb.WriteString("\n")
 			}
 		} else {
-			sb.WriteString("(无识别结果)\n\n")
+			sb.WriteString("(no result)\n\n")
 		}
 	}
 

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -108,7 +108,7 @@ func (s *Session) waitReady(ctx context.Context) error {
 	s.ID = ready.SessionID
 	s.ready = true
 
-	log.Printf("[client.tts] Session ready: id=%s, provider=%s", s.ID, s.Provider)
+	slog.Info("Session ready", "component", "tts", "id", s.ID, "provider", s.Provider)
 
 	return nil
 }
@@ -163,7 +163,7 @@ func (s *Session) messageLoop(ctx context.Context) {
 func (s *Session) handleMessage(data []byte) {
 	msgType, err := transport.ParseMessageType(data)
 	if err != nil {
-		log.Printf("[client.tts] Parse message error: %v", err)
+		slog.Error("Parse message error", "component", "tts", "error", err)
 		return
 	}
 
@@ -177,7 +177,7 @@ func (s *Session) handleMessage(data []byte) {
 	case protocol.MessageTypeError:
 		s.handleError(data)
 	default:
-		log.Printf("[client.tts] Unknown message type: %s", msgType)
+		slog.Warn("Unknown message type", "component", "tts", "type", msgType)
 	}
 }
 
@@ -191,7 +191,7 @@ func (s *Session) handleConfigDone() {
 	}
 	s.mu.Unlock()
 
-	log.Printf("[client.tts] Config done: id=%s", s.ID)
+	slog.Info("Config done", "component", "tts", "id", s.ID)
 }
 
 // handleAudioDelta 处理音频数据块
@@ -205,7 +205,7 @@ func (s *Session) handleAudioDelta(data []byte) {
 
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
-		log.Printf("[client.tts] Parse audio.delta error: %v", err)
+		slog.Error("Parse audio.delta error", "component", "tts", "error", err)
 		return
 	}
 
@@ -214,7 +214,7 @@ func (s *Session) handleAudioDelta(data []byte) {
 	// Base64解码
 	audioData, err := base64.StdEncoding.DecodeString(delta.Audio)
 	if err != nil {
-		log.Printf("[client.tts] Decode audio error: %v", err)
+		slog.Error("Decode audio error", "component", "tts", "error", err)
 		return
 	}
 
@@ -234,7 +234,7 @@ func (s *Session) handleAudioDelta(data []byte) {
 func (s *Session) handleError(data []byte) {
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
-		log.Printf("[client.tts] Parse error message error: %v", err)
+		slog.Error("Parse error message error", "component", "tts", "error", err)
 		return
 	}
 
@@ -265,7 +265,7 @@ func (s *Session) handleAudioDone() {
 		stream.pushDone()
 	}
 
-	log.Printf("[client.tts] Round %d completed: id=%s", s.roundCount, s.ID)
+	slog.Info("Round completed", "component", "tts", "round", s.roundCount, "id", s.ID)
 }
 
 // handleStreamError 处理流错误
@@ -339,7 +339,7 @@ func (s *Session) SynthesizeStream(ctx context.Context, text string) (*AudioStre
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
-	log.Printf("[client.tts] Round %d started: text_len=%d, id=%s", round, len(text), s.ID)
+	slog.Info("Round started", "component", "tts", "round", round, "text_len", len(text), "id", s.ID)
 
 	return stream, nil
 }
@@ -407,7 +407,7 @@ func (s *Session) Close() error {
 			// Gateway 已正常关闭连接
 		case <-time.After(2 * time.Second):
 			// 超时，强制关闭
-			log.Printf("[client.tts] Close timeout, forcing close: id=%s", s.ID)
+			slog.Warn("Close timeout, forcing close", "component", "tts", "id", s.ID)
 		}
 
 		// 取消 context（通知 messageLoop 退出）
@@ -423,7 +423,7 @@ func (s *Session) Close() error {
 			s.currentStream = nil
 		}
 		s.streamMu.Unlock()
-		log.Printf("[client.tts] Session closed: id=%s, rounds=%d", s.ID, s.roundCount)
+		slog.Info("Session closed", "component", "tts", "id", s.ID, "rounds", s.roundCount)
 	})
 	return nil
 }

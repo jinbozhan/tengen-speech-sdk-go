@@ -13,13 +13,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/jinbozhan/tengen-speech-sdk-go/audio"
+	"github.com/jinbozhan/tengen-speech-sdk-go/logging"
 	"github.com/jinbozhan/tengen-speech-sdk-go/tts"
 )
 
@@ -55,6 +55,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	logging.Setup(logging.LevelInfo)
 
 	texts := flag.Args()
 	if len(texts) == 0 {
@@ -77,7 +78,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		fmt.Println("\n正在取消...")
+		fmt.Println("\nCancelling...")
 		cancel()
 	}()
 
@@ -100,20 +101,22 @@ func main() {
 
 	client, err := tts.NewClient(config)
 	if err != nil {
-		log.Fatalf("创建客户端失败: %v", err)
+		logging.Error("Failed to create client", "error", err)
+		os.Exit(1)
 	}
 	defer client.Close()
 
-	fmt.Printf("TTS 配置: provider=%s, voice=%s, speed=%.1f, pitch=%.1f, volume=%.1f\n\n", provider, voiceID, speed, pitch, volume)
+	fmt.Printf("TTS Config: provider=%s, voice=%s, speed=%.1f, pitch=%.1f, volume=%.1f\n\n", provider, voiceID, speed, pitch, volume)
 
 	// 创建 Session（可复用资源）
 	session, err := client.CreateSession(ctx, nil)
 	if err != nil {
-		log.Fatalf("创建会话失败: %v", err)
+		logging.Error("Failed to create session", "error", err)
+		os.Exit(1)
 	}
 	defer session.Close()
 
-	fmt.Printf("Session 已创建: id=%s, 建连耗时=%dms\n\n", session.ID, session.ConnectDuration().Milliseconds())
+	fmt.Printf("Session created: id=%s, connect_duration=%dms\n\n", session.ID, session.ConnectDuration().Milliseconds())
 
 	// 多轮合成，复用同一个 Session
 	var allPCMData []byte
@@ -122,7 +125,8 @@ func main() {
 	for i, text := range texts {
 		result, pcmData, err := synthesizeStream(ctx, session, i+1, text)
 		if err != nil {
-			log.Fatalf("第 %d 轮合成失败: %v", i+1, err)
+			logging.Error("Synthesis failed", "round", i+1, "error", err)
+			os.Exit(1)
 		}
 		results = append(results, result)
 		allPCMData = append(allPCMData, pcmData...)
@@ -130,9 +134,10 @@ func main() {
 
 	// 写入 WAV 文件
 	if err := audio.WriteWAVFile(output, allPCMData, sampleRate, channels, bitsPerSample); err != nil {
-		log.Fatalf("写入WAV失败: %v", err)
+		logging.Error("Failed to write WAV", "error", err)
+		os.Exit(1)
 	}
-	fmt.Printf("\n音频已保存到: %s (%d bytes)\n", output, len(allPCMData))
+	fmt.Printf("\nAudio saved to: %s (%d bytes)\n", output, len(allPCMData))
 
 	// 打印统计
 	printSummary(results)
@@ -149,7 +154,7 @@ type RoundResult struct {
 
 // synthesizeStream 使用 Session 合成单段文本，返回结果和 PCM 数据
 func synthesizeStream(ctx context.Context, session *tts.Session, round int, text string) (RoundResult, []byte, error) {
-	fmt.Printf("第 %d 轮: \"%s\"\n", round, truncate(text, 30))
+	fmt.Printf("Round %d: \"%s\"\n", round, truncate(text, 30))
 
 	start := time.Now()
 
