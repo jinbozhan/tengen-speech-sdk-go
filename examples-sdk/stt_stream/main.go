@@ -178,6 +178,10 @@ loop:
 			fmt.Printf("\r[最终] [%.3fs - %.3fs] %s\n",
 				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
 			finalTexts = append(finalTexts, event.Text)
+		case stt.EventSpeechStarted:
+			fmt.Println("\r[语音] 检测到说话")
+		case stt.EventSpeechStopped:
+			fmt.Println("\r[语音] 说话结束")
 		case stt.EventError:
 			return finalTexts, fmt.Errorf("识别错误: %v", event.Error)
 		case stt.EventInputDone:

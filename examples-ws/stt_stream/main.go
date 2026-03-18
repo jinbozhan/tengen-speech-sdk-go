@@ -317,6 +317,11 @@ func handleSTTEvents(session *stt.Session) ([]string, error) {
 				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
+		case stt.EventSpeechStarted:
+			fmt.Println("\r[语音] 检测到说话")
+		case stt.EventSpeechStopped:
+			fmt.Println("\r[语音] 说话结束")
+
 		case stt.EventInputDone:
 			// 识别完成，正常退出
 			return finalTexts, lastErr

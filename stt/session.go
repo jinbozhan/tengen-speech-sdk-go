@@ -159,6 +159,10 @@ func (s *Session) handleMessage(data []byte) {
 		s.sendEvent(NewInputDoneEvent())
 	case protocol.MessageTypeProcessing:
 		s.sendEvent(NewProcessingEvent())
+	case protocol.MessageTypeSpeechStarted:
+		s.sendEvent(NewSpeechStartedEvent())
+	case protocol.MessageTypeSpeechStopped:
+		s.sendEvent(NewSpeechStoppedEvent())
 	case protocol.MessageTypeError:
 		s.handleError(data)
 	default:

@@ -19,19 +19,23 @@ const (
 	EventInputDone EventType = "input_done"
 	// EventProcessing 处理中心跳（服务端保活）
 	EventProcessing EventType = "processing"
+	// EventSpeechStarted 用户开始说话（VAD onset + STT partial 双重确认）
+	EventSpeechStarted EventType = "speech_started"
+	// EventSpeechStopped 用户停止说话（550ms 静音 OR stt.final）
+	EventSpeechStopped EventType = "speech_stopped"
 	// EventClosed 会话关闭
 	EventClosed EventType = "closed"
 )
 
 // RecognitionEvent 识别事件
 type RecognitionEvent struct {
-	Type       EventType     // 事件类型
-	SessionID  string        // 会话ID
-	Text      string        // 识别文本
-	IsFinal   bool          // 是否最终结果
-	StartTime time.Duration // 开始时间
-	EndTime    time.Duration // 结束时间
-	Error      error         // 错误（仅EventError时有效）
+	Type             EventType     // 事件类型
+	SessionID        string        // 会话ID
+	Text             string        // 识别文本
+	IsFinal          bool          // 是否最终结果
+	StartTime        time.Duration // 开始时间
+	EndTime          time.Duration // 结束时间
+	Error            error         // 错误（仅EventError时有效）
 }
 
 // IsReady 是否为就绪事件
@@ -106,6 +110,20 @@ func NewInputDoneEvent() *RecognitionEvent {
 func NewProcessingEvent() *RecognitionEvent {
 	return &RecognitionEvent{
 		Type: EventProcessing,
+	}
+}
+
+// NewSpeechStartedEvent 创建语音开始事件
+func NewSpeechStartedEvent() *RecognitionEvent {
+	return &RecognitionEvent{
+		Type: EventSpeechStarted,
+	}
+}
+
+// NewSpeechStoppedEvent 创建语音停止事件
+func NewSpeechStoppedEvent() *RecognitionEvent {
+	return &RecognitionEvent{
+		Type: EventSpeechStopped,
 	}
 }
 

@@ -25,6 +25,8 @@ const (
 	MessageTypeAudioDone         MessageType = "audio.done"
 	MessageTypeInputDone         MessageType = "input.done"
 	MessageTypeProcessing        MessageType = "processing"
+	MessageTypeSpeechStarted     MessageType = "speech.started"
+	MessageTypeSpeechStopped     MessageType = "speech.stopped"
 	MessageTypeError             MessageType = "error"
 )
 
@@ -114,6 +116,16 @@ type AudioDone struct {
 
 // InputDone 识别完成消息（STT）
 type InputDone struct {
+	Type MessageType `json:"type"`
+}
+
+// SpeechStarted 用户开始说话
+type SpeechStarted struct {
+	Type MessageType `json:"type"`
+}
+
+// SpeechStopped 用户停止说话
+type SpeechStopped struct {
 	Type MessageType `json:"type"`
 }
 
