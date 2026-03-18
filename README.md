@@ -5,7 +5,7 @@ Go 语言语音服务客户端 SDK，连接 Speech Arena Gateway，提供流式 
 ## 安装
 
 ```bash
-go get github.com/jinbozhan/tengen-speech-sdk-go@v0.1.1
+go get github.com/jinbozhan/tengen-speech-sdk-go@v0.1.2
 ```
 
 ## TTS - 流式文本转语音
@@ -180,3 +180,11 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 
 1. 运行 Speech Arena Gateway
 2. 获取有效的 API Key（如需认证）
+
+## 版本历史
+
+### v0.1.2
+- 移除 `speech.stopped` 协议消息、`SpeechStopped` 结构体及 `EventSpeechStopped` 事件，清理未使用的代码路径
+
+### v0.1.1
+- 流式 STT/TTS 稳定版，统一 SDK 接口，日志迁移至 slog
