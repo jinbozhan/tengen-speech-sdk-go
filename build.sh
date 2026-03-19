@@ -24,14 +24,14 @@ echo "[2/7] 编译所有包..."
 go build ./...
 
 # 3. 编译 TTS SDK Demo
-echo "[3/7] 编译 TTS SDK Demo..."
-go build -o bin/tts_stream_sdk ./examples-sdk/tts_stream
-echo "      -> bin/tts_stream_sdk"
+echo "[3/7] 编译 TTS Demo..."
+go build -o bin/tts_stream ./examples/tts_stream
+echo "      -> bin/tts_stream"
 
 # 4. 编译 STT SDK Demo
-echo "[4/7] 编译 STT SDK Demo..."
-go build -o bin/stt_stream_sdk ./examples-sdk/stt_stream
-echo "      -> bin/stt_stream_sdk"
+echo "[4/7] 编译 STT Demo..."
+go build -o bin/stt_stream ./examples/stt_stream
+echo "      -> bin/stt_stream"
 
 # 5. 编译 TTS Benchmark
 echo "[5/7] 编译 TTS Benchmark..."
@@ -55,13 +55,13 @@ echo "=========================================="
 echo ""
 echo "使用方法:"
 echo ""
-echo "  TTS SDK Demo:"
-echo "    ./bin/tts_stream_sdk \"你好，世界\""
-echo "    ./bin/tts_stream_sdk -h  # 查看帮助"
+echo "  TTS Demo:"
+echo "    ./bin/tts_stream \"你好，世界\""
+echo "    ./bin/tts_stream -h  # 查看帮助"
 echo ""
-echo "  STT SDK Demo:"
-echo "    ./bin/stt_stream_sdk audio.wav"
-echo "    ./bin/stt_stream_sdk -h  # 查看帮助"
+echo "  STT Demo:"
+echo "    ./bin/stt_stream audio.wav"
+echo "    ./bin/stt_stream -h  # 查看帮助"
 echo ""
 echo "  TTS Benchmark (性能测试):"
 echo "    ./bin/tts_benchmark -provider tengen -voice en-NG-OkunNeutral -iterations 10"
