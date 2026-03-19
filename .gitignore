@@ -1,7 +1,5 @@
 # 编译产物
 /bin/
-/stt_stream
-/tts_stream
 /benchmark*/
 *.exe
 *.exe~
