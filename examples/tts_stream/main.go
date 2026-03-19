@@ -40,7 +40,7 @@ var (
 
 func init() {
 	flag.StringVar(&gatewayURL, "gateway", "ws://localhost:8080", "Gateway URL")
-	flag.StringVar(&provider, "provider", "qwen_realtime", "TTS provider")
+	flag.StringVar(&provider, "provider", "qwen", "TTS provider")
 	flag.StringVar(&apiKey, "apikey", "", "API Key")
 	flag.StringVar(&voiceID, "voice", "loongstella", "Voice ID")
 	flag.StringVar(&language, "language", "", "Language code for text normalization (e.g. en-NG, sw-TZ)")
