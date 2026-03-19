@@ -64,9 +64,6 @@ func main() {
 		fmt.Println("Options:")
 		flag.PrintDefaults()
 		fmt.Println()
-		fmt.Println("Examples:")
-		fmt.Println("  tts_stream \"你好，世界\"")
-		fmt.Println("  tts_stream \"第一句\" \"第二句\" \"第三句\"")
 		os.Exit(1)
 	}
 
@@ -98,6 +95,7 @@ func main() {
 		ReadTimeout:    120 * time.Second,
 		WriteTimeout:   10 * time.Second,
 	}
+	logging.Info("TTS Config", "config", fmt.Sprintf("%+v", config))
 
 	client, err := tts.NewClient(config)
 	if err != nil {
@@ -106,8 +104,6 @@ func main() {
 	}
 	defer client.Close()
 
-	fmt.Printf("TTS Config: provider=%s, voice=%s, speed=%.1f, pitch=%.1f, volume=%.1f\n\n", provider, voiceID, speed, pitch, volume)
-
 	// 创建 Session（可复用资源）
 	session, err := client.CreateSession(ctx, nil)
 	if err != nil {
@@ -115,8 +111,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer session.Close()
-
-	fmt.Printf("Session created: id=%s, connect_duration=%dms\n\n", session.ID, session.ConnectDuration().Milliseconds())
+	logging.Info("Session created", "id", session.ID, "connect_duration_ms", session.ConnectDuration().Milliseconds())
 
 	// 多轮合成，复用同一个 Session
 	var allPCMData []byte
@@ -137,7 +132,7 @@ func main() {
 		logging.Error("Failed to write WAV", "error", err)
 		os.Exit(1)
 	}
-	fmt.Printf("\nAudio saved to: %s (%d bytes)\n", output, len(allPCMData))
+	logging.Info("Audio saved", "file", output, "bytes", len(allPCMData))
 
 	// 打印统计
 	printSummary(results)
@@ -154,8 +149,7 @@ type RoundResult struct {
 
 // synthesizeStream 使用 Session 合成单段文本，返回结果和 PCM 数据
 func synthesizeStream(ctx context.Context, session *tts.Session, round int, text string) (RoundResult, []byte, error) {
-	fmt.Printf("Round %d: \"%s\"\n", round, truncate(text, 30))
-
+	logging.Info("Synthesis round", "round", round, "text", truncate(text, 30))
 	start := time.Now()
 
 	// 调用 Session 的 SynthesizeStream 方法
@@ -192,7 +186,7 @@ func synthesizeStream(ctx context.Context, session *tts.Session, round int, text
 	}
 	totalTime := time.Since(start)
 
-	fmt.Printf("  TTFB: %dms, Total: %dms, Size: %d bytes\n", ttfb.Milliseconds(), totalTime.Milliseconds(), len(pcmData))
+	logging.Info("Round complete", "ttfb_ms", ttfb.Milliseconds(), "total_ms", totalTime.Milliseconds(), "bytes", len(pcmData))
 
 	return RoundResult{
 		Round:     round,
@@ -209,15 +203,11 @@ func printSummary(results []RoundResult) {
 		return
 	}
 
-	fmt.Println()
-	fmt.Println("=========================================")
-	fmt.Println("Summary")
-	fmt.Println("=========================================")
-
+	logging.Info("=========================================")
 	for _, r := range results {
-		fmt.Printf("Round %d: TTFB %dms\n", r.Round, r.TTFB.Milliseconds())
+		logging.Info("Round summary", "round", r.Round, "ttfb_ms", r.TTFB.Milliseconds())
 	}
-	fmt.Println("=========================================")
+	logging.Info("=========================================")
 }
 
 func truncate(s string, n int) string {
