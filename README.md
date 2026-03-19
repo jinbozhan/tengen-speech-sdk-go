@@ -134,10 +134,10 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 ### TTS
 
 ```bash
-./bin/tts_stream_sdk "你好，世界"
-./bin/tts_stream_sdk "第一句" "第二句" "第三句"
-./bin/tts_stream_sdk -provider qwen -voice loongstella -apikey "sk_xxx" "测试"
-./bin/tts_stream_sdk -speed 1.5 -sample-rate 16000 -output result.wav "快速播放"
+./bin/tts_stream "你好，世界"
+./bin/tts_stream "第一句" "第二句" "第三句"
+./bin/tts_stream -provider qwen -voice loongstella -apikey "sk_xxx" "测试"
+./bin/tts_stream -speed 1.5 -sample-rate 16000 -output result.wav "快速播放"
 ```
 
 | 参数 | 默认值 | 说明 |
@@ -156,9 +156,9 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 ### STT
 
 ```bash
-./bin/stt_stream_sdk audio.wav
-./bin/stt_stream_sdk -provider qwen -language en-US recording.wav
-./bin/stt_stream_sdk -apikey "sk_xxx" audio.wav
+./bin/stt_stream audio.wav
+./bin/stt_stream -provider qwen -language en-US recording.wav
+./bin/stt_stream -apikey "sk_xxx" audio.wav
 ```
 
 | 参数 | 默认值 | 说明 |
