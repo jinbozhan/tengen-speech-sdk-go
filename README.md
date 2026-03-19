@@ -138,14 +138,14 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 ```bash
 ./bin/tts_stream "你好，世界"
 ./bin/tts_stream "第一句" "第二句" "第三句"
-./bin/tts_stream -provider qwen_realtime -voice loongstella -apikey "sk_xxx" "测试"
+./bin/tts_stream -provider qwen -voice loongstella -apikey "sk_xxx" "测试"
 ./bin/tts_stream -speed 1.5 -sample-rate 16000 -output result.wav "快速播放"
 ```
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `-gateway` | `ws://localhost:8080` | Gateway 地址 |
-| `-provider` | `qwen_realtime` | TTS 提供商 |
+| `-provider` | `qwen` | TTS 提供商 |
 | `-apikey` | - | API Key |
 | `-voice` | `loongstella` | Voice ID |
 | `-language` | - | 语言代码（文本归一化用，如 en-NG, sw-TZ） |
@@ -180,7 +180,7 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 |----------|-----|-----|------|
 | `tengen` | Y | Y | 默认提供商 |
 | `azure` | Y | Y | Microsoft Azure Speech Services |
-| `qwen_realtime` | Y | Y | 阿里通义千问实时语音 |
+| `qwen` | Y | Y | 阿里通义千问实时语音 |
 | `voxnexus` | Y | Y | VoxNexus 语音服务 |
 
 ## 前置条件
@@ -194,7 +194,7 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 - 移除 `speech.stopped` 协议消息、`SpeechStopped` 结构体及 `EventSpeechStopped` 事件，清理未使用的代码路径
 - 重命名 examples-sdk 为 examples，统一目录结构
 - 新增 `EventSpeechStarted`、`EventProcessing` 事件类型
-- TTS CLI 默认 provider 切换为 `qwen_realtime`
+- TTS CLI 默认 provider 切换为 `qwen`
 - 新增 TTS Benchmark、TTS Detailed Timing、VAD-Clip ASR 工具
 
 ### v0.1.1
