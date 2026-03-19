@@ -38,7 +38,7 @@ func main() {
 	)
 
 	flag.StringVar(&gateway, "gateway", "ws://localhost:7861", "Gateway WebSocket URL")
-	flag.StringVar(&provider, "provider", "tengen", "TTS provider (tengen, qwen_realtime)")
+	flag.StringVar(&provider, "provider", "tengen", "TTS provider (tengen, qwen)")
 	flag.StringVar(&apiKey, "api-key", os.Getenv("GATEWAY_API_KEY"), "API Key for authentication")
 	flag.StringVar(&voiceConfig, "voices", "en-NG-RoseSerious:40,en-NG-OkunSerious:40",
 		"Voice configuration (format: voice1:concurrency1,voice2:concurrency2)")

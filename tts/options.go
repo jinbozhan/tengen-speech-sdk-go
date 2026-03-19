@@ -7,7 +7,7 @@ import "time"
 type Config struct {
 	// Gateway配置
 	GatewayURL string // Gateway WebSocket URL
-	Provider   string // 提供商: tengen (默认), azure, qwen_realtime, voxnexus
+	Provider   string // 提供商: tengen (默认), azure, qwen, voxnexus
 	APIKey     string // API Key 认证（可选，通过URL参数传递）
 
 	// 合成参数

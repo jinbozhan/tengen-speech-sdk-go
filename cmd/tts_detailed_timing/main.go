@@ -35,7 +35,7 @@ func main() {
 	)
 
 	flag.StringVar(&gateway, "gateway", "ws://localhost:7861", "Gateway WebSocket URL")
-	flag.StringVar(&provider, "provider", "qwen_realtime", "TTS provider (qwen_realtime, azure)")
+	flag.StringVar(&provider, "provider", "qwen", "TTS provider (qwen, azure)")
 	flag.StringVar(&apiKey, "api-key", os.Getenv("GATEWAY_API_KEY"), "API Key")
 	flag.StringVar(&voice, "voice", "en-NG-OkunNeutral", "Voice ID (Qwen: en-NG-OkunNeutral, Azure: en-NG-EzinneNeural)")
 	// 默认使用尼日利亚英语(en-NG)文本
@@ -48,7 +48,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Examples:\n")
 		fmt.Fprintf(os.Stderr, "  # Test Qwen Realtime\n")
-		fmt.Fprintf(os.Stderr, "  %s -provider qwen_realtime -voice en-NG-OkunNeutral -text \"Hello world\" -iterations 3\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -provider qwen -voice en-NG-OkunNeutral -text \"Hello world\" -iterations 3\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "  # Test Azure TTS\n")
 		fmt.Fprintf(os.Stderr, "  %s -provider azure -voice en-NG-EzinneNeural -iterations 5\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
