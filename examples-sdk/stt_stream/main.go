@@ -105,14 +105,6 @@ func main() {
 	}
 	defer client.Close()
 
-	fmt.Printf("STT Config:\n")
-	fmt.Printf("  Gateway: %s\n", gatewayURL)
-	fmt.Printf("  Provider: %s\n", provider)
-	fmt.Printf("  Language: %s\n", language)
-	fmt.Printf("  Sample Rate: %d Hz\n", sampleRate)
-	fmt.Printf("  Audio File: %s\n", audioFile)
-	fmt.Println()
-
 	// 创建流式会话
 	opts := &stt.StreamOptions{
 		Language:    language,
@@ -164,13 +156,11 @@ func main() {
 
 	// 显示完整结果
 	if len(finalTexts) > 0 {
-		fmt.Println()
-		fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
-		fmt.Println("Final result:")
-		fmt.Println(strings.Join(finalTexts, ""))
+		logging.Info("TTFB", "ms", session.TTFB().Milliseconds())
+		logging.Info("Final result", "text", strings.Join(finalTexts, ""))
 	}
 
-	fmt.Printf("\nRecognition complete! Duration: %dms\n", elapsed.Milliseconds())
+	logging.Info("Recognition complete", "duration_ms", elapsed.Milliseconds())
 }
 
 // recognizeStreaming 流式识别，接收事件并返回最终识别文本
@@ -181,15 +171,14 @@ loop:
 	for event := range session.Events() {
 		switch event.Type {
 		case stt.EventPartial:
-			fmt.Printf("\n[Partial] %s", event.Text)
+			logging.Info("[Partial]", "text", event.Text)
 
 		case stt.EventFinal:
-			fmt.Printf("\n[Final] [%.3fs - %.3fs] %s\n",
-				event.StartTime.Seconds(), event.EndTime.Seconds(), event.Text)
+			logging.Info("[Final]", "start", event.StartTime.Seconds(), "end", event.EndTime.Seconds(), "text", event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
 		case stt.EventSpeechStarted:
-			fmt.Println("\n[Speech] speech.started")
+			logging.Info("[Speech] speech.started")
 
 		// 活动心跳静默忽略
 		case stt.EventProcessing:
@@ -201,7 +190,7 @@ loop:
 			break loop
 
 		case stt.EventError:
-			fmt.Printf("\n[Error] %v\n", event.Error)
+			logging.Error("Recognition error", "error", event.Error)
 		}
 	}
 
