@@ -91,9 +91,6 @@ func main() {
 		Volume:         volume,
 		SampleRate:     sampleRate,
 		AudioFormat:    "pcm",
-		ConnectTimeout: 30 * time.Second,
-		ReadTimeout:    120 * time.Second,
-		WriteTimeout:   10 * time.Second,
 	}
 	logging.Info("TTS Config", "config", fmt.Sprintf("%+v", config))
 

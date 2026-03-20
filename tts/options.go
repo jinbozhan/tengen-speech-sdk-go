@@ -60,6 +60,15 @@ func (c *Config) Validate() error {
 	if c.Volume <= 0 {
 		c.Volume = 1.0
 	}
+	if c.ConnectTimeout <= 0 {
+		c.ConnectTimeout = 10 * time.Second
+	}
+	if c.ReadTimeout <= 0 {
+		c.ReadTimeout = 60 * time.Second
+	}
+	if c.WriteTimeout <= 0 {
+		c.WriteTimeout = 10 * time.Second
+	}
 	return nil
 }
 

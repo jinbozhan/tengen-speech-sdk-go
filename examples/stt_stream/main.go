@@ -17,11 +17,6 @@ import (
 )
 
 const (
-	// 超时
-	connectTimeout = 30 * time.Second  // WebSocket 连接超时
-	readTimeout    = 120 * time.Second // 读超时
-	writeTimeout   = 10 * time.Second  // 写超时
-
 	// 音频发送
 	chunkDurationMs = 100 // 每块音频时长（毫秒）
 
@@ -92,9 +87,6 @@ func main() {
 		Language:       language,
 		SampleRate:     sampleRate,
 		AudioFormat:    "pcm",
-		ConnectTimeout: connectTimeout,
-		ReadTimeout:    readTimeout,
-		WriteTimeout:   writeTimeout,
 	}
 
 	// 创建客户端
