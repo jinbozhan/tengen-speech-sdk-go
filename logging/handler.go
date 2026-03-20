@@ -133,10 +133,18 @@ func Setup(level slog.Level) {
 
 // Log functions — thin wrappers so callers only need to import logging.
 
-func Debug(msg string, args ...any) { slog.Debug(msg, args...) }
-func Info(msg string, args ...any)  { slog.Info(msg, args...) }
-func Warn(msg string, args ...any)  { slog.Warn(msg, args...) }
-func Error(msg string, args ...any) { slog.Error(msg, args...) }
+func log(level slog.Level, msg string, args ...any) {
+	var pcs [1]uintptr
+	runtime.Callers(3, pcs[:]) // skip: runtime.Callers, log, the public wrapper
+	r := slog.NewRecord(time.Now(), level, msg, pcs[0])
+	r.Add(args...)
+	_ = slog.Default().Handler().Handle(context.Background(), r)
+}
+
+func Debug(msg string, args ...any) { log(slog.LevelDebug, msg, args...) }
+func Info(msg string, args ...any)  { log(slog.LevelInfo, msg, args...) }
+func Warn(msg string, args ...any)  { log(slog.LevelWarn, msg, args...) }
+func Error(msg string, args ...any) { log(slog.LevelError, msg, args...) }
 
 // levelString 返回固定宽度的级别字符串
 func levelString(level slog.Level) string {
