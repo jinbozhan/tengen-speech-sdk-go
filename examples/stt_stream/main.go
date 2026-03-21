@@ -178,9 +178,6 @@ loop:
 		case stt.EventSessionEnded:
 			break loop
 
-		case stt.EventSessionClosed:
-			break loop
-
 		case stt.EventError:
 			logging.Error("Recognition error", "error", event.Error)
 		}

@@ -127,7 +127,6 @@ func (s *Session) sendConfig() error {
 // messageLoop 消息处理循环
 func (s *Session) messageLoop(ctx context.Context) {
 	defer func() {
-		s.sendEvent(NewSessionClosedEvent())
 		close(s.eventsCh)
 	}()
 

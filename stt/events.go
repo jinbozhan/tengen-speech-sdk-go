@@ -21,8 +21,6 @@ const (
 	EventProcessing EventType = "processing"
 	// EventSpeechStarted 用户开始说话（对应 MessageType "speech.started"）
 	EventSpeechStarted EventType = "speech.started"
-	// EventSessionClosed 会话关闭（客户端专属事件）
-	EventSessionClosed EventType = "session.closed"
 )
 
 // RecognitionEvent 识别事件
@@ -54,11 +52,6 @@ func (e *RecognitionEvent) IsTranscriptFinal() bool {
 // IsError 是否为错误事件
 func (e *RecognitionEvent) IsError() bool {
 	return e.Type == EventError
-}
-
-// IsSessionClosed 是否为关闭事件
-func (e *RecognitionEvent) IsSessionClosed() bool {
-	return e.Type == EventSessionClosed
 }
 
 // NewSessionReadyEvent 创建就绪事件
@@ -115,13 +108,6 @@ func NewProcessingEvent() *RecognitionEvent {
 func NewSpeechStartedEvent() *RecognitionEvent {
 	return &RecognitionEvent{
 		Type: EventSpeechStarted,
-	}
-}
-
-// NewSessionClosedEvent 创建关闭事件
-func NewSessionClosedEvent() *RecognitionEvent {
-	return &RecognitionEvent{
-		Type: EventSessionClosed,
 	}
 }
 

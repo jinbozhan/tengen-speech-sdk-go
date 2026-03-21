@@ -133,8 +133,6 @@ loop:
 				result.Error = event.Error
 			case EventSessionEnded:
 				break loop
-			case EventSessionClosed:
-				break loop
 			}
 
 		case <-idleTimer.C:
@@ -311,8 +309,6 @@ loop:
 			case EventError:
 				result.Error = event.Error
 			case EventSessionEnded:
-				break loop
-			case EventSessionClosed:
 				break loop
 			}
 
