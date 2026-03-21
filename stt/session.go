@@ -31,6 +31,8 @@ type Session struct {
 	firstSendTime time.Time     // 首次 Send 的时间
 	ttfb          time.Duration // 首个识别结果延迟
 	ttfbDone      bool          // TTFB 是否已计算
+
+	connectedAt time.Time // set after session is ready and config is sent
 }
 
 // newSession 创建会话
@@ -59,6 +61,8 @@ func (s *Session) start(ctx context.Context) error {
 
 	// 启动消息处理循环
 	go s.messageLoop(ctx)
+
+	s.connectedAt = time.Now()
 
 	return nil
 }
@@ -102,7 +106,7 @@ func (s *Session) waitReady(ctx context.Context) error {
 	slog.Info("Session ready", "component", "stt", "id", s.ID, "provider", s.Provider)
 
 	// 发送就绪事件
-	s.sendEvent(NewReadyEvent(s.ID))
+	s.sendEvent(NewSessionReadyEvent(s.ID))
 
 	return nil
 }
@@ -123,7 +127,7 @@ func (s *Session) sendConfig() error {
 // messageLoop 消息处理循环
 func (s *Session) messageLoop(ctx context.Context) {
 	defer func() {
-		s.sendEvent(NewClosedEvent())
+		s.sendEvent(NewSessionClosedEvent())
 		close(s.eventsCh)
 	}()
 
@@ -155,8 +159,8 @@ func (s *Session) handleMessage(data []byte) {
 		s.handlePartial(data)
 	case protocol.MessageTypeTranscriptFinal:
 		s.handleFinal(data)
-	case protocol.MessageTypeInputDone:
-		s.sendEvent(NewInputDoneEvent())
+	case protocol.MessageTypeSessionEnded:
+		s.sendEvent(NewSessionEndedEvent())
 	case protocol.MessageTypeProcessing:
 		s.sendEvent(NewProcessingEvent())
 	case protocol.MessageTypeSpeechStarted:
@@ -178,7 +182,7 @@ func (s *Session) handlePartial(data []byte) {
 	}
 
 	partial := msg.(*protocol.TranscriptPartial)
-	event := NewPartialEvent(partial.Text)
+	event := NewTranscriptPartialEvent(partial.Text)
 	s.sendEvent(event)
 }
 
@@ -196,7 +200,7 @@ func (s *Session) handleFinal(data []byte) {
 	startTime := time.Duration(final.StartTime) * time.Millisecond
 	endTime := time.Duration(final.EndTime) * time.Millisecond
 
-	event := NewFinalEvent(final.Text, startTime, endTime)
+	event := NewTranscriptFinalEvent(final.Text, startTime, endTime)
 	s.sendEvent(event)
 }
 
@@ -248,13 +252,8 @@ func (s *Session) Send(audio []byte) error {
 	return nil
 }
 
-// SendPCM 发送PCM音频数据（16位有符号整数，小端序）
-func (s *Session) SendPCM(pcm []byte) error {
-	return s.Send(pcm)
-}
-
-// Commit 提交当前输入
-func (s *Session) Commit() error {
+// EndInput 通知 Gateway 音频流已全部发送完毕（发送 session.end）
+func (s *Session) EndInput() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -262,7 +261,7 @@ func (s *Session) Commit() error {
 		return fmt.Errorf("session closed")
 	}
 
-	msg := transport.NewInputCommit()
+	msg := transport.NewSessionEnd()
 	return s.conn.SendJSON(msg)
 }
 
@@ -290,6 +289,14 @@ func (s *Session) Events() <-chan *RecognitionEvent {
 	return s.eventsCh
 }
 
+// ConnectDuration returns the elapsed time since the session became ready.
+func (s *Session) ConnectDuration() time.Duration {
+	if s.connectedAt.IsZero() {
+		return 0
+	}
+	return time.Since(s.connectedAt)
+}
+
 // Close 关闭会话
 func (s *Session) Close() error {
 	s.closeOnce.Do(func() {
@@ -297,22 +304,8 @@ func (s *Session) Close() error {
 		s.closed = true
 		s.mu.Unlock()
 
-		// 发送 session.end 消息
-		msg := transport.NewSessionEnd()
-		s.conn.SendJSON(msg)
-
-		// 等待 Gateway 的 Close Frame（最多 2 秒）
-		// Gateway 会在处理完 session.end 后主动发送 Close Frame
-		// 这是正确的 WebSocket 关闭握手流程（RFC 6455）
-		select {
-		case <-s.conn.CloseChan():
-			// Gateway 已正常关闭连接
-		case <-time.After(2 * time.Second):
-			// 超时，强制关闭
-			slog.Warn("Close timeout, forcing close", "component", "stt", "id", s.ID)
-		}
-
 		// 关闭 session 自己的 closeCh（通知 messageLoop 退出）
+		// 客户端收到 session.ended 后主动关闭连接
 		close(s.closeCh)
 		s.conn.Close()
 

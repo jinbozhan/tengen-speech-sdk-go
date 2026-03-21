@@ -13,8 +13,8 @@ const (
 	MessageTypeSessionConfig MessageType = "session.config"
 	MessageTypeAudioAppend   MessageType = "audio.append"
 	MessageTypeTextAppend    MessageType = "text.append"
-	MessageTypeInputCommit   MessageType = "input.commit"
-	MessageTypeSessionEnd    MessageType = "session.end"
+	MessageTypeInputCommit   MessageType = "input.commit" // TTS 触发合成
+	MessageTypeSessionEnd    MessageType = "session.end"  // TTS: 关闭会话；STT: 音频发完，请完成识别
 
 	// 服务端消息类型
 	MessageTypeSessionReady      MessageType = "session.ready"
@@ -23,7 +23,7 @@ const (
 	MessageTypeTranscriptFinal   MessageType = "transcript.final"
 	MessageTypeAudioDelta        MessageType = "audio.delta"
 	MessageTypeAudioDone         MessageType = "audio.done"
-	MessageTypeInputDone         MessageType = "input.done"
+	MessageTypeSessionEnded      MessageType = "session.ended" // STT 识别完成，服务端关闭连接
 	MessageTypeProcessing        MessageType = "processing"
 	MessageTypeSpeechStarted     MessageType = "speech.started"
 	MessageTypeError             MessageType = "error"
@@ -44,7 +44,7 @@ type SessionConfig struct {
 type SessionParams struct {
 	Provider    string `json:"provider,omitempty"`     // azure, qwen, voxnexus
 	Language    string `json:"language,omitempty"`     // zh-CN, en-US
-	SampleRate  int    `json:"sample_rate,omitempty"`  // 16000
+	SampleRate  int    `json:"sample_rate,omitempty"`  // 默认 8000
 	AudioFormat string `json:"audio_format,omitempty"` // pcm, wav, mp3
 
 	// TTS 特有参数
@@ -52,7 +52,6 @@ type SessionParams struct {
 	Speed   float64 `json:"speed,omitempty"`
 	Pitch   float64 `json:"pitch,omitempty"`
 	Volume  float64 `json:"volume,omitempty"`
-
 }
 
 // AudioAppend 音频数据消息（STT）
@@ -67,12 +66,12 @@ type TextAppend struct {
 	Text string      `json:"text"`
 }
 
-// InputCommit 输入提交消息
+// InputCommit 输入提交消息（TTS 专用）
 type InputCommit struct {
 	Type MessageType `json:"type"`
 }
 
-// SessionEnd 会话结束消息
+// SessionEnd 会话结束消息（TTS: 关闭会话；STT: 音频发完，请完成识别）
 type SessionEnd struct {
 	Type MessageType `json:"type"`
 }
@@ -96,7 +95,7 @@ type TranscriptPartial struct {
 
 // TranscriptFinal 最终识别结果（STT）
 type TranscriptFinal struct {
-	Type       MessageType `json:"type"`
+	Type      MessageType `json:"type"`
 	Text      string      `json:"text"`
 	StartTime int64       `json:"start_time,omitempty"` // 毫秒
 	EndTime   int64       `json:"end_time,omitempty"`
@@ -113,13 +112,8 @@ type AudioDone struct {
 	Type MessageType `json:"type"`
 }
 
-// InputDone 识别完成消息（STT）
-type InputDone struct {
-	Type MessageType `json:"type"`
-}
-
-// SpeechStarted 用户开始说话
-type SpeechStarted struct {
+// SessionEnded STT 识别完成消息（服务端发送后关闭连接）
+type SessionEnded struct {
 	Type MessageType `json:"type"`
 }
 
@@ -196,12 +190,34 @@ type Processing struct {
 	Type MessageType `json:"type"`
 }
 
+// NewProcessing 创建处理中心跳消息
+func NewProcessing() *Processing {
+	return &Processing{Type: MessageTypeProcessing}
+}
+
+// SpeechStarted VAD 检测到用户开始说话
+type SpeechStarted struct {
+	Type MessageType `json:"type"`
+}
+
+// NewSpeechStarted 创建语音开始消息
+func NewSpeechStarted() *SpeechStarted {
+	return &SpeechStarted{Type: MessageTypeSpeechStarted}
+}
+
 // NewError 创建错误消息
 func NewError(code, message string) *ErrorMessage {
 	return &ErrorMessage{
 		Type:    MessageTypeError,
 		Code:    code,
 		Message: message,
+	}
+}
+
+// NewSessionEnded 创建 STT 识别完成消息
+func NewSessionEnded() *SessionEnded {
+	return &SessionEnded{
+		Type: MessageTypeSessionEnded,
 	}
 }
 

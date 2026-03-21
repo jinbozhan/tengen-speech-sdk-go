@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// commit 后无新事件的空闲超时，超时即认为识别完成
+	// EndInput 后无新事件的空闲超时，超时即认为识别完成
 	recognizeIdleTimeout = 10 * time.Second
 )
 
@@ -61,7 +61,7 @@ func (c *Client) RecognizeFile(ctx context.Context, audioPath string) (*Recognit
 		AudioFormat: c.config.AudioFormat,
 	}
 
-	session, err := c.RecognizeStream(ctx, opts)
+	session, err := c.createSession(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +85,10 @@ func (c *Client) RecognizeFile(ctx context.Context, audioPath string) (*Recognit
 			sendDoneCh <- err
 			return
 		}
-		sendDoneCh <- session.Commit()
+		sendDoneCh <- session.EndInput()
 	}()
 
-	// 事件循环：commit 后启动空闲计时器，每收到事件重置
+	// 事件循环：EndInput 后启动空闲计时器，每收到事件重置
 	// 如果 idleTimeout 内无新事件到达，认为识别完成
 	committed := false
 	idleTimer := time.NewTimer(0)
@@ -119,9 +119,9 @@ loop:
 				idleTimer.Reset(recognizeIdleTimeout)
 			}
 			switch event.Type {
-			case EventPartial:
+			case EventTranscriptPartial:
 				// 部分结果，可以用于实时显示
-			case EventFinal:
+			case EventTranscriptFinal:
 				texts = append(texts, event.Text)
 				result.Segments = append(result.Segments, Segment{
 					Text:      event.Text,
@@ -131,9 +131,9 @@ loop:
 				})
 			case EventError:
 				result.Error = event.Error
-			case EventInputDone:
+			case EventSessionEnded:
 				break loop
-			case EventClosed:
+			case EventSessionClosed:
 				break loop
 			}
 
@@ -178,9 +178,21 @@ func (c *Client) sendAudioFromReader(session *Session, reader io.Reader) error {
 	return nil
 }
 
-// RecognizeStream 流式识别（高级API）
-// 返回会话对象，用户手动发送音频和接收结果
-func (c *Client) RecognizeStream(ctx context.Context, opts *StreamOptions) (*Session, error) {
+// CreateSession 创建 STT 流式会话。
+// 返回 Session 对象，调用方通过 Send() 发送音频、EndInput() 标记结束、Events() 接收识别结果。
+func (c *Client) CreateSession(ctx context.Context, opts *StreamOptions) (*Session, error) {
+	if opts == nil {
+		opts = &StreamOptions{
+			Language:    c.config.Language,
+			SampleRate:  c.config.SampleRate,
+			AudioFormat: c.config.AudioFormat,
+		}
+	}
+	return c.createSession(ctx, opts)
+}
+
+// createSession 内部创建会话
+func (c *Client) createSession(ctx context.Context, opts *StreamOptions) (*Session, error) {
 	if opts == nil {
 		opts = DefaultStreamOptions()
 	}
@@ -229,7 +241,7 @@ func (c *Client) RecognizeBytes(ctx context.Context, audio []byte) (*Recognition
 		AudioFormat: c.config.AudioFormat,
 	}
 
-	session, err := c.RecognizeStream(ctx, opts)
+	session, err := c.createSession(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -255,10 +267,10 @@ func (c *Client) RecognizeBytes(ctx context.Context, audio []byte) (*Recognition
 				return
 			}
 		}
-		sendDoneCh <- session.Commit()
+		sendDoneCh <- session.EndInput()
 	}()
 
-	// 事件循环：commit 后启动空闲计时器
+	// 事件循环：EndInput 后启动空闲计时器
 	committed := false
 	idleTimer := time.NewTimer(0)
 	if !idleTimer.Stop() {
@@ -288,7 +300,7 @@ loop:
 				idleTimer.Reset(recognizeIdleTimeout)
 			}
 			switch event.Type {
-			case EventFinal:
+			case EventTranscriptFinal:
 				texts = append(texts, event.Text)
 				result.Segments = append(result.Segments, Segment{
 					Text:      event.Text,
@@ -298,9 +310,9 @@ loop:
 				})
 			case EventError:
 				result.Error = event.Error
-			case EventInputDone:
+			case EventSessionEnded:
 				break loop
-			case EventClosed:
+			case EventSessionClosed:
 				break loop
 			}
 

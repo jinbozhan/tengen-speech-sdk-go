@@ -7,48 +7,48 @@ import "time"
 type EventType string
 
 const (
-	// EventReady 会话就绪
-	EventReady EventType = "ready"
-	// EventPartial 部分识别结果
-	EventPartial EventType = "partial"
-	// EventFinal 最终识别结果
-	EventFinal EventType = "final"
-	// EventError 错误
+	// EventSessionReady 会话就绪（对应 MessageType "session.ready"）
+	EventSessionReady EventType = "session.ready"
+	// EventTranscriptPartial 部分识别结果（对应 MessageType "transcript.partial"）
+	EventTranscriptPartial EventType = "transcript.partial"
+	// EventTranscriptFinal 最终识别结果（对应 MessageType "transcript.final"）
+	EventTranscriptFinal EventType = "transcript.final"
+	// EventError 错误（对应 MessageType "error"）
 	EventError EventType = "error"
-	// EventInputDone 识别完成（服务端通知）
-	EventInputDone EventType = "input_done"
-	// EventProcessing 处理中心跳（服务端保活）
+	// EventSessionEnded 识别完成（对应 MessageType "session.ended"）
+	EventSessionEnded EventType = "session.ended"
+	// EventProcessing 处理中心跳（对应 MessageType "processing"）
 	EventProcessing EventType = "processing"
-	// EventSpeechStarted 用户开始说话（VAD onset + STT partial 双重确认）
-	EventSpeechStarted EventType = "speech_started"
-	// EventClosed 会话关闭
-	EventClosed EventType = "closed"
+	// EventSpeechStarted 用户开始说话（对应 MessageType "speech.started"）
+	EventSpeechStarted EventType = "speech.started"
+	// EventSessionClosed 会话关闭（客户端专属事件）
+	EventSessionClosed EventType = "session.closed"
 )
 
 // RecognitionEvent 识别事件
 type RecognitionEvent struct {
-	Type             EventType     // 事件类型
-	SessionID        string        // 会话ID
-	Text             string        // 识别文本
-	IsFinal          bool          // 是否最终结果
-	StartTime        time.Duration // 开始时间
-	EndTime          time.Duration // 结束时间
-	Error            error         // 错误（仅EventError时有效）
+	Type      EventType     // 事件类型
+	SessionID string        // 会话ID
+	Text      string        // 识别文本
+	IsFinal   bool          // 是否最终结果
+	StartTime time.Duration // 开始时间
+	EndTime   time.Duration // 结束时间
+	Error     error         // 错误（仅EventError时有效）
 }
 
-// IsReady 是否为就绪事件
-func (e *RecognitionEvent) IsReady() bool {
-	return e.Type == EventReady
+// IsSessionReady 是否为就绪事件
+func (e *RecognitionEvent) IsSessionReady() bool {
+	return e.Type == EventSessionReady
 }
 
-// IsPartial 是否为部分结果
-func (e *RecognitionEvent) IsPartial() bool {
-	return e.Type == EventPartial
+// IsTranscriptPartial 是否为部分结果
+func (e *RecognitionEvent) IsTranscriptPartial() bool {
+	return e.Type == EventTranscriptPartial
 }
 
-// IsFinalResult 是否为最终结果
-func (e *RecognitionEvent) IsFinalResult() bool {
-	return e.Type == EventFinal
+// IsTranscriptFinal 是否为最终结果
+func (e *RecognitionEvent) IsTranscriptFinal() bool {
+	return e.Type == EventTranscriptFinal
 }
 
 // IsError 是否为错误事件
@@ -56,32 +56,32 @@ func (e *RecognitionEvent) IsError() bool {
 	return e.Type == EventError
 }
 
-// IsClosed 是否为关闭事件
-func (e *RecognitionEvent) IsClosed() bool {
-	return e.Type == EventClosed
+// IsSessionClosed 是否为关闭事件
+func (e *RecognitionEvent) IsSessionClosed() bool {
+	return e.Type == EventSessionClosed
 }
 
-// NewReadyEvent 创建就绪事件
-func NewReadyEvent(sessionID string) *RecognitionEvent {
+// NewSessionReadyEvent 创建就绪事件
+func NewSessionReadyEvent(sessionID string) *RecognitionEvent {
 	return &RecognitionEvent{
-		Type:      EventReady,
+		Type:      EventSessionReady,
 		SessionID: sessionID,
 	}
 }
 
-// NewPartialEvent 创建部分识别事件
-func NewPartialEvent(text string) *RecognitionEvent {
+// NewTranscriptPartialEvent 创建部分识别事件
+func NewTranscriptPartialEvent(text string) *RecognitionEvent {
 	return &RecognitionEvent{
-		Type:    EventPartial,
+		Type:    EventTranscriptPartial,
 		Text:    text,
 		IsFinal: false,
 	}
 }
 
-// NewFinalEvent 创建最终识别事件
-func NewFinalEvent(text string, startTime, endTime time.Duration) *RecognitionEvent {
+// NewTranscriptFinalEvent 创建最终识别事件
+func NewTranscriptFinalEvent(text string, startTime, endTime time.Duration) *RecognitionEvent {
 	return &RecognitionEvent{
-		Type:      EventFinal,
+		Type:      EventTranscriptFinal,
 		Text:      text,
 		IsFinal:   true,
 		StartTime: startTime,
@@ -97,10 +97,10 @@ func NewErrorEvent(err error) *RecognitionEvent {
 	}
 }
 
-// NewInputDoneEvent 创建识别完成事件
-func NewInputDoneEvent() *RecognitionEvent {
+// NewSessionEndedEvent 创建识别完成事件
+func NewSessionEndedEvent() *RecognitionEvent {
 	return &RecognitionEvent{
-		Type: EventInputDone,
+		Type: EventSessionEnded,
 	}
 }
 
@@ -118,19 +118,19 @@ func NewSpeechStartedEvent() *RecognitionEvent {
 	}
 }
 
-// NewClosedEvent 创建关闭事件
-func NewClosedEvent() *RecognitionEvent {
+// NewSessionClosedEvent 创建关闭事件
+func NewSessionClosedEvent() *RecognitionEvent {
 	return &RecognitionEvent{
-		Type: EventClosed,
+		Type: EventSessionClosed,
 	}
 }
 
 // RecognitionResult 完整识别结果
 type RecognitionResult struct {
-	Text     string    	    // 完整文本
-	Segments []Segment 	    // 分段结果
-	Duration time.Duration	//
-	TTFB     time.Duration 	// 首个识别结果延迟
+	Text     string         // 完整文本
+	Segments []Segment      // 分段结果
+	Duration time.Duration  //
+	TTFB     time.Duration  // 首个识别结果延迟
 	Error    error
 }
 

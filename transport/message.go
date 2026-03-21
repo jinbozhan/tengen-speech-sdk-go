@@ -47,8 +47,8 @@ func ParseMessage(data []byte) (interface{}, error) {
 		msg = &protocol.AudioDelta{}
 	case protocol.MessageTypeAudioDone:
 		msg = &protocol.AudioDone{}
-	case protocol.MessageTypeInputDone:
-		msg = &protocol.InputDone{}
+	case protocol.MessageTypeSessionEnded:
+		msg = &protocol.SessionEnded{}
 	case protocol.MessageTypeProcessing:
 		msg = &protocol.Processing{}
 	case protocol.MessageTypeSpeechStarted:
@@ -108,14 +108,14 @@ func NewTextAppend(text string) *protocol.TextAppend {
 	}
 }
 
-// NewInputCommit 创建输入提交消息
+// NewInputCommit 创建输入提交消息（TTS 专用）
 func NewInputCommit() *protocol.InputCommit {
 	return &protocol.InputCommit{
 		Type: protocol.MessageTypeInputCommit,
 	}
 }
 
-// NewSessionEnd 创建会话结束消息
+// NewSessionEnd 创建会话结束消息（TTS: 关闭会话；STT: 音频发完，请完成识别）
 func NewSessionEnd() *protocol.SessionEnd {
 	return &protocol.SessionEnd{
 		Type: protocol.MessageTypeSessionEnd,
@@ -130,7 +130,7 @@ func IsServerMessage(msgType protocol.MessageType) bool {
 		protocol.MessageTypeTranscriptFinal,
 		protocol.MessageTypeAudioDelta,
 		protocol.MessageTypeAudioDone,
-		protocol.MessageTypeInputDone,
+		protocol.MessageTypeSessionEnded,
 		protocol.MessageTypeProcessing,
 		protocol.MessageTypeSpeechStarted,
 		protocol.MessageTypeError:

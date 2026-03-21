@@ -86,7 +86,7 @@ client, _ := stt.NewClient(config)
 defer client.Close()
 
 // 创建流式会话
-session, _ := client.RecognizeStream(ctx, &stt.StreamOptions{
+session, _ := client.CreateSession(ctx, &stt.StreamOptions{
     Language:    "zh-CN",
     SampleRate:  16000,
     AudioFormat: "pcm",
@@ -104,7 +104,7 @@ go func() {
         }
         session.Send(buf[:n])
     }
-    session.Commit() // 标记发送完毕
+    session.EndInput() // 标记发送完毕
 }()
 
 // 接收识别事件
@@ -119,7 +119,7 @@ for event := range session.Events() {
         fmt.Println("[SpeechStarted]")
     case stt.EventError:
         fmt.Printf("[Error] %v\n", event.Error)
-    case stt.EventInputDone, stt.EventClosed:
+    case stt.EventSessionEnded, stt.EventClosed:
         break
     }
 }

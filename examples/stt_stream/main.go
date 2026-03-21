@@ -16,21 +16,14 @@ import (
 	"github.com/jinbozhan/tengen-speech-sdk-go/stt"
 )
 
-const (
-	// 音频发送
-	chunkDurationMs = 100 // 每块音频时长（毫秒）
-
-	// WAV
-	wavHeaderSize = 44 // WAV 文件头字节数
-)
+const wavHeaderSize = 44 // WAV 文件头字节数
 
 var (
-	gatewayURL   string
-	provider     string
-	apiKey       string
-	language     string
-	sampleRate   int
-	sendInterval int
+	gatewayURL string
+	provider   string
+	apiKey     string
+	language   string
+	sampleRate int
 )
 
 func init() {
@@ -39,7 +32,6 @@ func init() {
 	flag.StringVar(&apiKey, "apikey", "", "API Key for authentication")
 	flag.StringVar(&language, "language", "zh-CN", "Recognition language")
 	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
-	flag.IntVar(&sendInterval, "send-interval", chunkDurationMs, "Send interval in ms (default matches chunk duration for real-time simulation)")
 }
 
 func main() {
@@ -81,12 +73,12 @@ func main() {
 
 	// 创建STT配置
 	config := &stt.Config{
-		GatewayURL:     gatewayURL,
-		Provider:       provider,
-		APIKey:         apiKey,
-		Language:       language,
-		SampleRate:     sampleRate,
-		AudioFormat:    "pcm",
+		GatewayURL:  gatewayURL,
+		Provider:    provider,
+		APIKey:      apiKey,
+		Language:    language,
+		SampleRate:  sampleRate,
+		AudioFormat: "pcm",
 	}
 
 	// 创建客户端
@@ -103,12 +95,13 @@ func main() {
 		SampleRate:  sampleRate,
 		AudioFormat: "pcm",
 	}
-	session, err := client.RecognizeStream(ctx, opts)
+	session, err := client.CreateSession(ctx, opts)
 	if err != nil {
 		logging.Error("Failed to create session", "error", err)
 		os.Exit(1)
 	}
 	defer session.Close()
+	logging.Info("Session created", "id", session.ID, "connect_duration_ms", session.ConnectDuration().Milliseconds())
 
 	// 打开音频文件
 	file, err := os.Open(audioFile)
@@ -123,24 +116,31 @@ func main() {
 		file.Seek(wavHeaderSize, io.SeekStart)
 	}
 
-	// 启动发送音频的goroutine
-	sendDone := make(chan error, 1)
-	go func() {
-		sendDone <- sendAudio(session, file, sampleRate)
-	}()
-
 	start := time.Now()
 
-	// 流式识别
-	finalTexts, err := recognizeStreaming(session)
+	// 流式识别: 从文件发送音频，EndInput 后接收事件
+	go func() {
+		chunkSize := sampleRate * 2 / 10 // 100ms
+		buf := make([]byte, chunkSize)
+		for {
+			n, err := file.Read(buf)
+			if err == io.EOF {
+				break
+			}
+            // 发送数据分块
+			if n > 0 {
+				session.Send(buf[:n])
+                // 模拟实时速度
+                time.Sleep(100 * time.Millisecond)
+			}
+		}
+		// 数据结束：EndInput发送session.end到服务端
+		session.EndInput()
+	}()
+
+	finalTexts, err := recognizeStreaming(session.Events())
 	if err != nil {
 		logging.Error("Recognition failed", "error", err)
-		os.Exit(1)
-	}
-
-	// 等待发送完成
-	if err := <-sendDone; err != nil {
-		logging.Error("Failed to send audio", "error", err)
 		os.Exit(1)
 	}
 
@@ -156,16 +156,16 @@ func main() {
 }
 
 // recognizeStreaming 流式识别，接收事件并返回最终识别文本
-func recognizeStreaming(session *stt.Session) ([]string, error) {
+func recognizeStreaming(events <-chan *stt.RecognitionEvent) ([]string, error) {
 	var finalTexts []string
 
 loop:
-	for event := range session.Events() {
+	for event := range events {
 		switch event.Type {
-		case stt.EventPartial:
+		case stt.EventTranscriptPartial:
 			logging.Info("[Partial]", "text", event.Text)
 
-		case stt.EventFinal:
+		case stt.EventTranscriptFinal:
 			logging.Info("[Final]", "start", event.StartTime.Seconds(), "end", event.EndTime.Seconds(), "text", event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
@@ -175,10 +175,10 @@ loop:
 		// 活动心跳静默忽略
 		case stt.EventProcessing:
 
-		case stt.EventInputDone:
+		case stt.EventSessionEnded:
 			break loop
 
-		case stt.EventClosed:
+		case stt.EventSessionClosed:
 			break loop
 
 		case stt.EventError:
@@ -187,31 +187,4 @@ loop:
 	}
 
 	return finalTexts, nil
-}
-
-// sendAudio 发送音频数据到会话
-func sendAudio(session *stt.Session, reader io.Reader, sampleRate int) error {
-	// 100ms音频块 @ sampleRate, 16-bit
-	chunkSize := sampleRate * 2 * chunkDurationMs / 1000
-	buf := make([]byte, chunkSize)
-
-	for {
-		n, err := reader.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if n > 0 {
-			if err := session.Send(buf[:n]); err != nil {
-				return err
-			}
-			// 控制发送节奏
-			time.Sleep(time.Duration(sendInterval) * time.Millisecond)
-		}
-	}
-
-	// 提交输入
-	return session.Commit()
 }
