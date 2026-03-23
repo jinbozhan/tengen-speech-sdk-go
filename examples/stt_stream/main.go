@@ -24,6 +24,7 @@ var (
 	apiKey     string
 	language   string
 	sampleRate int
+	interval   int
 )
 
 func init() {
@@ -32,6 +33,7 @@ func init() {
 	flag.StringVar(&apiKey, "apikey", "", "API Key for authentication")
 	flag.StringVar(&language, "language", "zh-CN", "Recognition language")
 	flag.IntVar(&sampleRate, "sample-rate", 8000, "Audio sample rate")
+	flag.IntVar(&interval, "interval", 100, "Send interval in milliseconds")
 }
 
 func main() {
@@ -104,43 +106,63 @@ func main() {
 	logging.Info("Session created", "id", session.ID, "connect_duration_ms", session.ConnectDuration().Milliseconds())
 
 	// 打开音频文件
-	file, err := os.Open(audioFile)
+	reader, err := os.Open(audioFile)
 	if err != nil {
 		logging.Error("Failed to open file", "error", err)
 		os.Exit(1)
 	}
-	defer file.Close()
+	defer reader.Close()
 
 	// 跳过WAV头
 	if strings.HasSuffix(strings.ToLower(audioFile), ".wav") {
-		file.Seek(wavHeaderSize, io.SeekStart)
+		reader.Seek(wavHeaderSize, io.SeekStart)
 	}
 
 	start := time.Now()
 
 	// 流式识别: 从文件发送音频，EndInput 后接收事件
+	sendErrCh := make(chan error, 1)
 	go func() {
 		chunkSize := sampleRate * 2 / 10 // 100ms
 		buf := make([]byte, chunkSize)
 		for {
-			n, err := file.Read(buf)
+			n, err := reader.Read(buf)
 			if err == io.EOF {
 				break
 			}
-            // 发送数据分块
+			if err != nil {
+				logging.Error("Failed to read audio", "error", err)
+				sendErrCh <- err
+				return
+			}
+			// 发送数据分块
 			if n > 0 {
-				session.Send(buf[:n])
-                // 模拟实时速度
-                time.Sleep(100 * time.Millisecond)
+				if err := session.Send(buf[:n]); err != nil {
+					logging.Error("Failed to send audio", "error", err)
+					sendErrCh <- err
+					return
+				}
+				// 模拟实时速度
+				time.Sleep(time.Duration(interval) * time.Millisecond)
 			}
 		}
 		// 数据结束：EndInput发送session.end到服务端
-		session.EndInput()
+		if err := session.EndInput(); err != nil {
+			logging.Error("Failed to end input", "error", err)
+			sendErrCh <- err
+			return
+		}
+		sendErrCh <- nil
 	}()
 
 	finalTexts, err := recognizeStreaming(session.Events())
 	if err != nil {
 		logging.Error("Recognition failed", "error", err)
+		os.Exit(1)
+	}
+
+	if sendErr := <-sendErrCh; sendErr != nil {
+		logging.Error("Send goroutine failed", "error", sendErr)
 		os.Exit(1)
 	}
 
