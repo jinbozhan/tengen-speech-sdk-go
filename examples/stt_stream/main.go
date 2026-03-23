@@ -120,7 +120,7 @@ func main() {
 
 	start := time.Now()
 
-	// 流式识别: 从文件发送音频，EndInput 后接收事件
+	// 发送音频流: 从文件发送音频，数据结束发送EndInput 
 	sendErrCh := make(chan error, 1)
 	go func() {
 		chunkSize := sampleRate * 2 / 10 // 100ms
@@ -155,6 +155,7 @@ func main() {
 		sendErrCh <- nil
 	}()
 
+    // 流式识别: 接受事件并返回最终识别文本
 	finalTexts, err := recognizeStreaming(session.Events())
 	if err != nil {
 		logging.Error("Recognition failed", "error", err)
@@ -188,7 +189,8 @@ loop:
 			logging.Info("[Partial]", "text", event.Text)
 
 		case stt.EventTranscriptFinal:
-			logging.Info("[Final]", "start", event.StartTime.Seconds(), "end", event.EndTime.Seconds(), "text", event.Text)
+			logging.Info("[Final]", "start", event.StartTime.Seconds(), 
+                "end", event.EndTime.Seconds(), "text", event.Text)
 			finalTexts = append(finalTexts, event.Text)
 
 		case stt.EventSpeechStarted:
