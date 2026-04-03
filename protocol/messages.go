@@ -9,36 +9,31 @@ import (
 type MessageType string
 
 const (
-	// 客户端消息类型
-	MessageTypeSessionConfig MessageType = "session.config"
-	MessageTypeAudioAppend   MessageType = "audio.append"
-	MessageTypeTextAppend    MessageType = "text.append"
-	MessageTypeInputCommit   MessageType = "input.commit" // TTS 触发合成
-	MessageTypeSessionEnd    MessageType = "session.end"  // TTS: 关闭会话；STT: 音频发完，请完成识别
-
-	// 服务端消息类型
+	// 阶段 1: 会话生命周期
 	MessageTypeSessionReady      MessageType = "session.ready"
+	MessageTypeSessionConfig     MessageType = "session.config"
 	MessageTypeSessionConfigDone MessageType = "session.config_done"
+
+	// 阶段 2: 客户端输入
+	MessageTypeAudioAppend MessageType = "audio.append"
+	MessageTypeTextAppend  MessageType = "text.append"
+	MessageTypeInputCommit MessageType = "input.commit" // TTS 触发合成
+
+	// 阶段 3: 服务端处理与输出
+	MessageTypeSpeechStarted     MessageType = "speech.started"
+	MessageTypeProcessing        MessageType = "processing"
 	MessageTypeTranscriptPartial MessageType = "transcript.partial"
 	MessageTypeTranscriptFinal   MessageType = "transcript.final"
 	MessageTypeAudioDelta        MessageType = "audio.delta"
 	MessageTypeAudioDone         MessageType = "audio.done"
-	MessageTypeSessionEnded      MessageType = "session.ended" // STT 识别完成，服务端关闭连接
-	MessageTypeProcessing        MessageType = "processing"
-	MessageTypeSpeechStarted     MessageType = "speech.started"
-	MessageTypeError             MessageType = "error"
+
+	// 阶段 4: 会话结束
+	MessageTypeSessionEnd   MessageType = "session.end"   // TTS: 关闭会话；STT: 音频发完，请完成识别
+	MessageTypeSessionEnded MessageType = "session.ended"  // STT 识别完成，服务端关闭连接
+
+	// 错误
+	MessageTypeError MessageType = "error"
 )
-
-// Message 通用消息结构
-type Message struct {
-	Type MessageType `json:"type"`
-}
-
-// SessionConfig 会话配置消息
-type SessionConfig struct {
-	Type    MessageType   `json:"type"`
-	Session SessionParams `json:"session"`
-}
 
 // SessionParams 会话参数
 type SessionParams struct {
@@ -46,7 +41,6 @@ type SessionParams struct {
 	Language    string `json:"language,omitempty"`     // zh-CN, en-US
 	SampleRate  int    `json:"sample_rate,omitempty"`  // 默认 8000
 	AudioFormat string `json:"audio_format,omitempty"` // pcm, wav, mp3
-
 	// TTS 特有参数
 	VoiceID string  `json:"voice_id,omitempty"`
 	Speed   float64 `json:"speed,omitempty"`
@@ -54,46 +48,78 @@ type SessionParams struct {
 	Volume  float64 `json:"volume,omitempty"`
 }
 
-// AudioAppend 音频数据消息（STT）
-type AudioAppend struct {
-	Type  MessageType `json:"type"`
-	Audio string      `json:"audio"` // base64 编码的音频数据
-}
+// ──────────────────────────────────────────────
+// 通用消息
+// ──────────────────────────────────────────────
 
-// TextAppend 文本数据消息（TTS）
-type TextAppend struct {
-	Type MessageType `json:"type"`
-	Text string      `json:"text"`
-}
-
-// InputCommit 输入提交消息（TTS 专用）
-type InputCommit struct {
+// Message 通用消息结构
+type Message struct {
 	Type MessageType `json:"type"`
 }
 
-// SessionEnd 会话结束消息（TTS: 关闭会话；STT: 音频发完，请完成识别）
-type SessionEnd struct {
-	Type MessageType `json:"type"`
-}
+// ──────────────────────────────────────────────
+// 阶段 1: 会话生命周期
+// ──────────────────────────────────────────────
 
-// SessionReady 会话就绪消息
+// SessionReady 会话就绪消息（S→C，连接建立后服务端首条消息）
 type SessionReady struct {
 	Type      MessageType `json:"type"`
 	SessionID string      `json:"session_id"`
 }
 
-// SessionConfigDone 会话配置完成消息
+// SessionConfig 会话配置消息（C→S）
+type SessionConfig struct {
+	Type    MessageType   `json:"type"`
+	Session SessionParams `json:"session"`
+}
+
+// SessionConfigDone 会话配置完成消息（S→C）
 type SessionConfigDone struct {
 	Type MessageType `json:"type"`
 }
 
-// TranscriptPartial 部分识别结果（STT）
+// ──────────────────────────────────────────────
+// 阶段 2: 客户端输入
+// ──────────────────────────────────────────────
+
+// AudioAppend 音频数据消息（C→S，STT）
+type AudioAppend struct {
+	Type  MessageType `json:"type"`
+	Audio string      `json:"audio"` // base64 编码的音频数据
+}
+
+// TextAppend 文本数据消息（C→S，TTS）
+type TextAppend struct {
+	Type MessageType `json:"type"`
+	Text string      `json:"text"`
+}
+
+// InputCommit 输入提交消息（C→S，TTS 专用）
+type InputCommit struct {
+	Type MessageType `json:"type"`
+}
+
+// ──────────────────────────────────────────────
+// 阶段 3: 服务端处理与输出
+// ──────────────────────────────────────────────
+
+// SpeechStarted VAD 检测到用户开始说话（S→C，STT）
+type SpeechStarted struct {
+	Type MessageType `json:"type"`
+}
+
+// Processing 处理中心跳消息（S→C，STT）
+type Processing struct {
+	Type MessageType `json:"type"`
+}
+
+// TranscriptPartial 部分识别结果（S→C，STT）
 type TranscriptPartial struct {
 	Type MessageType `json:"type"`
 	Text string      `json:"text"`
 }
 
-// TranscriptFinal 最终识别结果（STT）
+// TranscriptFinal 最终识别结果（S→C，STT）
 type TranscriptFinal struct {
 	Type      MessageType `json:"type"`
 	Text      string      `json:"text"`
@@ -101,21 +127,34 @@ type TranscriptFinal struct {
 	EndTime   int64       `json:"end_time,omitempty"`
 }
 
-// AudioDelta 音频数据块（TTS）
+// AudioDelta 音频数据块（S→C，TTS）
 type AudioDelta struct {
 	Type  MessageType `json:"type"`
 	Audio string      `json:"audio"` // base64 编码的音频数据
 }
 
-// AudioDone 音频完成消息（TTS）
+// AudioDone 音频完成消息（S→C，TTS）
 type AudioDone struct {
 	Type MessageType `json:"type"`
 }
 
-// SessionEnded STT 识别完成消息（服务端发送后关闭连接）
+// ──────────────────────────────────────────────
+// 阶段 4: 会话结束
+// ──────────────────────────────────────────────
+
+// SessionEnd 会话结束消息（C→S，TTS: 关闭会话；STT: 音频发完，请完成识别）
+type SessionEnd struct {
+	Type MessageType `json:"type"`
+}
+
+// SessionEnded STT 识别完成消息（S→C，服务端发送后关闭连接）
 type SessionEnded struct {
 	Type MessageType `json:"type"`
 }
+
+// ──────────────────────────────────────────────
+// 错误
+// ──────────────────────────────────────────────
 
 // ErrorMessage 错误消息
 type ErrorMessage struct {
@@ -134,8 +173,12 @@ const (
 	ErrorCodeInternalError      = "INTERNAL_ERROR"
 	ErrorCodeUnsupported        = "UNSUPPORTED"
 	ErrorCodeServiceUnavailable = "SERVICE_UNAVAILABLE" // 服务不可用（内部配置问题）
-	ErrorCodeVoiceNotFound      = "VOICE_NOT_FOUND"      // 音色不存在
+	ErrorCodeVoiceNotFound      = "VOICE_NOT_FOUND"     // 音色不存在
 )
+
+// ──────────────────────────────────────────────
+// 构造函数（按协议阶段排序）
+// ──────────────────────────────────────────────
 
 // NewSessionReady 创建会话就绪消息
 func NewSessionReady(sessionID string) *SessionReady {
@@ -150,6 +193,16 @@ func NewSessionConfigDone() *SessionConfigDone {
 	return &SessionConfigDone{
 		Type: MessageTypeSessionConfigDone,
 	}
+}
+
+// NewSpeechStarted 创建语音开始消息
+func NewSpeechStarted() *SpeechStarted {
+	return &SpeechStarted{Type: MessageTypeSpeechStarted}
+}
+
+// NewProcessing 创建处理中心跳消息
+func NewProcessing() *Processing {
+	return &Processing{Type: MessageTypeProcessing}
 }
 
 // NewTranscriptPartial 创建部分识别结果
@@ -185,24 +238,11 @@ func NewAudioDone() *AudioDone {
 	}
 }
 
-// Processing 处理中心跳消息（STT）
-type Processing struct {
-	Type MessageType `json:"type"`
-}
-
-// NewProcessing 创建处理中心跳消息
-func NewProcessing() *Processing {
-	return &Processing{Type: MessageTypeProcessing}
-}
-
-// SpeechStarted VAD 检测到用户开始说话
-type SpeechStarted struct {
-	Type MessageType `json:"type"`
-}
-
-// NewSpeechStarted 创建语音开始消息
-func NewSpeechStarted() *SpeechStarted {
-	return &SpeechStarted{Type: MessageTypeSpeechStarted}
+// NewSessionEnded 创建 STT 识别完成消息
+func NewSessionEnded() *SessionEnded {
+	return &SessionEnded{
+		Type: MessageTypeSessionEnded,
+	}
 }
 
 // NewError 创建错误消息
@@ -214,12 +254,9 @@ func NewError(code, message string) *ErrorMessage {
 	}
 }
 
-// NewSessionEnded 创建 STT 识别完成消息
-func NewSessionEnded() *SessionEnded {
-	return &SessionEnded{
-		Type: MessageTypeSessionEnded,
-	}
-}
+// ──────────────────────────────────────────────
+// 解析函数
+// ──────────────────────────────────────────────
 
 // ParseMessage 解析消息类型
 func ParseMessage(data []byte) (MessageType, error) {
