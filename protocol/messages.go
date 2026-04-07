@@ -21,7 +21,6 @@ const (
 
 	// 阶段 3: 服务端处理与输出
 	MessageTypeSpeechStarted     MessageType = "speech.started"
-	MessageTypeProcessing        MessageType = "processing"
 	MessageTypeTranscriptPartial MessageType = "transcript.partial"
 	MessageTypeTranscriptFinal   MessageType = "transcript.final"
 	MessageTypeAudioDelta        MessageType = "audio.delta"
@@ -105,11 +104,6 @@ type InputCommit struct {
 
 // SpeechStarted VAD 检测到用户开始说话（S→C，STT）
 type SpeechStarted struct {
-	Type MessageType `json:"type"`
-}
-
-// Processing 处理中心跳消息（S→C，STT）
-type Processing struct {
 	Type MessageType `json:"type"`
 }
 
@@ -198,11 +192,6 @@ func NewSessionConfigDone() *SessionConfigDone {
 // NewSpeechStarted 创建语音开始消息
 func NewSpeechStarted() *SpeechStarted {
 	return &SpeechStarted{Type: MessageTypeSpeechStarted}
-}
-
-// NewProcessing 创建处理中心跳消息
-func NewProcessing() *Processing {
-	return &Processing{Type: MessageTypeProcessing}
 }
 
 // NewTranscriptPartial 创建部分识别结果

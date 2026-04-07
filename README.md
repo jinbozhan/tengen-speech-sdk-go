@@ -193,7 +193,7 @@ fmt.Printf("TTFB: %dms\n", session.TTFB().Milliseconds())
 ### v0.1.2
 - 移除 `speech.stopped` 协议消息、`SpeechStopped` 结构体及 `EventSpeechStopped` 事件，清理未使用的代码路径
 - 重命名 examples-sdk 为 examples，统一目录结构
-- 新增 `EventSpeechStarted`、`EventProcessing` 事件类型
+- 新增 `EventSpeechStarted` 事件类型
 - TTS CLI 默认 provider 切换为 `qwen`
 - 新增 TTS Benchmark、TTS Detailed Timing、VAD-Clip ASR 工具
 

@@ -160,8 +160,6 @@ func (s *Session) handleMessage(data []byte) {
 		s.handleFinal(data)
 	case protocol.MessageTypeSessionEnded:
 		s.sendEvent(NewSessionEndedEvent())
-	case protocol.MessageTypeProcessing:
-		s.sendEvent(NewProcessingEvent())
 	case protocol.MessageTypeSpeechStarted:
 		s.sendEvent(NewSpeechStartedEvent())
 	case protocol.MessageTypeError:

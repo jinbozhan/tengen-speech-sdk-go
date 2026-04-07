@@ -196,9 +196,6 @@ loop:
 		case stt.EventSpeechStarted:
 			logging.Info("[Speech] speech.started")
 
-		// 活动心跳静默忽略
-		case stt.EventProcessing:
-
 		case stt.EventSessionEnded:
 			break loop
 

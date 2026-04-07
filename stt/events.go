@@ -17,8 +17,6 @@ const (
 	EventError EventType = "error"
 	// EventSessionEnded 识别完成（对应 MessageType "session.ended"）
 	EventSessionEnded EventType = "session.ended"
-	// EventProcessing 处理中心跳（对应 MessageType "processing"）
-	EventProcessing EventType = "processing"
 	// EventSpeechStarted 用户开始说话（对应 MessageType "speech.started"）
 	EventSpeechStarted EventType = "speech.started"
 )
@@ -94,13 +92,6 @@ func NewErrorEvent(err error) *RecognitionEvent {
 func NewSessionEndedEvent() *RecognitionEvent {
 	return &RecognitionEvent{
 		Type: EventSessionEnded,
-	}
-}
-
-// NewProcessingEvent 创建处理中心跳事件
-func NewProcessingEvent() *RecognitionEvent {
-	return &RecognitionEvent{
-		Type: EventProcessing,
 	}
 }
 

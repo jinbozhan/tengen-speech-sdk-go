@@ -109,7 +109,6 @@ session.EndInput()  // 标记输入完成
 | `transcript.partial` | 中间识别结果（会被后续结果覆盖） | Text |
 | `transcript.final` | 最终识别结果（不可变） | Text, StartTime, EndTime |
 | `speech.started` | VAD 检测到用户开始说话 | 无 |
-| `processing` | 服务端处理中心跳 | 无 |
 | `session.ended` | 识别完成，服务端即将关闭连接 | 无 |
 | `error` | 错误 | Error |
 
@@ -182,7 +181,6 @@ switch msgType {
 case protocol.MessageTypeTranscriptPartial:  s.handlePartial(data)
 case protocol.MessageTypeTranscriptFinal:    s.handleFinal(data)
 case protocol.MessageTypeSessionEnded:       s.sendEvent(NewSessionEndedEvent())
-case protocol.MessageTypeProcessing:         s.sendEvent(NewProcessingEvent())
 case protocol.MessageTypeSpeechStarted:      s.sendEvent(NewSpeechStartedEvent())
 case protocol.MessageTypeError:              s.handleError(data)
 }
@@ -248,7 +246,6 @@ for event := range session.Events() {
    │                          │                           │                          │
    │── EndInput() ───────────▶│── session.end ──────────▶│─────────────────────────▶│
    │                          │                           │                          │
-   │                          │                           │◀── processing (心跳) ────│
    │                          │                           │◀── transcript.final ×N ──│
    │                          │                           │◀── session.ended ────────│
    │◀── Events() ended ──────│◀─ sendEvent() ────────────│                          │
