@@ -21,7 +21,7 @@ Content-Type: `application/json`
 | `model` | string | 是 | - | 模型 ID：`tts-1` / `tts-1-hd` |
 | `input` | string | 是 | - | 要合成的文本，最大 4096 字符 |
 | `voice` | string | 是 | - | 音色名称，对应 voice library 的 display_id |
-| `response_format` | string | 否 | `wav` | 输出格式：`wav`、`pcm` |
+| `response_format` | string | 否 | `wav` | 输出格式：`wav`、`pcm`、`opus` |
 | `speed` | number | 否 | `1.0` | 语速，0.25 ~ 4.0 |
 
 ### 响应
@@ -32,6 +32,7 @@ Content-Type: `application/json`
 |-----------------|-------------|------|
 | `wav` | `audio/wav` | 24kHz 16-bit mono WAV (RIFF 头 + PCM) |
 | `pcm` | `audio/pcm` | 24kHz 16-bit mono 原始 PCM (little-endian) |
+| `opus` | `audio/opus` | Opus 编码，64kbps VBR |
 
 ### 示例
 
@@ -220,8 +221,8 @@ const client = new OpenAI({
 
 | 特性 | OpenAI 官方 | 本实现 | 说明 |
 |------|-----------|--------|------|
-| TTS 默认格式 | mp3 | wav | 无 MP3 编码器依赖，**必须显式指定 `response_format="wav"`** |
-| TTS 支持格式 | mp3/opus/aac/flac/wav/pcm | wav/pcm | 同上 |
+| TTS 默认格式 | mp3 | wav | 暂不支持 mp3，**建议显式指定 `response_format`** |
+| TTS 支持格式 | mp3/opus/aac/flac/wav/pcm | wav/pcm/opus | 支持 opus 编码 |
 | TTS 采样率 | 24kHz | 24kHz | 一致 |
 | STT 输入格式 | flac/mp3/mp4/wav/... | wav | Azure RecognizeOnce 原生支持 WAV |
 | STT verbose_json | 含 words/segments 数组 | 仅 duration/text | Azure 不返回 word-level timestamps |

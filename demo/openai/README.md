@@ -40,7 +40,7 @@ python tts_demo.py --text "Fast playback" --speed 1.5
 - `--text` 要合成的文本（默认: 英文测试句）
 - `--voice` 音色名称，Azure voice name（默认: en-NG-AbeoNeural）
 - `--model` 模型名称（默认: tts-1）
-- `--format` 输出格式: wav, pcm（默认: wav）
+- `--format` 输出格式: wav, pcm, opus（默认: wav）
 - `--speed` 语速 0.25-4.0（默认: 1.0）
 - `--output` 输出文件路径（默认: output.wav）
 
@@ -127,6 +127,6 @@ voice 参数使用 Azure Speech Service 的 voice name，格式为 `{locale}-{Na
 
 ## 注意事项
 
-- `response_format` 必须显式指定为 `wav` 或 `pcm`，本服务暂不支持 OpenAI 默认的 mp3
+- `response_format` 支持 `wav`、`pcm`、`opus`，暂不支持 OpenAI 默认的 mp3
 - `voice` 参数使用 Azure voice name，不是 OpenAI 的 alloy/nova 等
-- 音频规格: 24kHz, 16-bit, mono（与 OpenAI 官方一致）
+- WAV/PCM 音频规格: 24kHz, 16-bit, mono; Opus: 64kbps VBR

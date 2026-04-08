@@ -16,8 +16,8 @@ def main():
                         help="音色名称，对应 voice library 的 display_id (默认: en-NG-AbeoNeural)")
     parser.add_argument("--model", default="tts-1",
                         help="模型名称 (默认: tts-1)")
-    parser.add_argument("--format", default="wav", choices=["wav", "pcm"],
-                        help="输出格式 (默认: wav)")
+    parser.add_argument("--format", default="wav", choices=["wav", "pcm", "opus"],
+                        help="输出格式: wav, pcm, opus (默认: wav)")
     parser.add_argument("--speed", type=float, default=1.0,
                         help="语速, 0.25-4.0 (默认: 1.0)")
     parser.add_argument("--output", default="output.wav",
