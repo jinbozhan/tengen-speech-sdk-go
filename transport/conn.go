@@ -105,6 +105,21 @@ func (c *Conn) Connect(ctx context.Context) error {
 	c.connected = true
 	c.connectedAt = time.Now() // 记录建连完成时间
 
+	// 收到服务端 Ping 时重置 ReadDeadline 并回 Pong。
+	// gorilla 的 ReadMessage() 只在收到数据帧时返回，Ping 控制帧在内部处理，
+	// 不会重置 ReadDeadline。没有这个 handler，空闲超过 ReadTimeout 就会 i/o timeout。
+	if c.config.ReadTimeout > 0 {
+		c.ws.SetPingHandler(func(msg string) error {
+			c.ws.SetReadDeadline(time.Now().Add(c.config.ReadTimeout))
+			err := c.ws.WriteControl(websocket.PongMessage, []byte(msg),
+				time.Now().Add(c.config.WriteTimeout))
+			if err == websocket.ErrCloseSent {
+				return nil
+			}
+			return err
+		})
+	}
+
 	// 启动读取goroutine
 	go c.readLoop()
 
