@@ -258,13 +258,14 @@ for event := range session.Events() {
 
 ## 四、Goroutine 模型
 
-一个 STT 会话运行时共 3 个后台 goroutine：
+一个 STT 会话运行时共 2 个后台 goroutine：
 
 | Goroutine | 位置 | 职责 | 生命周期 |
 |-----------|------|------|---------|
 | `readLoop` | `transport/conn.go:149` | 从 WebSocket 读消息 → `readCh` | Connect 时启动，连接关闭时退出 |
-| `pingLoop` | `transport/conn.go:198` | 定时发送 Ping 保活 | Connect 时启动（可选），连接关闭时退出 |
 | `messageLoop` | `stt/session.go:128` | 从 `readCh` 路由消息 → `eventsCh` | start() 时启动，ctx取消/closeCh关闭时退出 |
+
+保活由服务端 Ping 驱动：服务端每 20s 发 Ping → 客户端 PingHandler 重置 ReadDeadline + 回 Pong，无需客户端主动发心跳。
 
 调用者通常额外起一个 goroutine 用于发送音频（见 example），形成 **发送-接收分离** 的全双工模式。
 
@@ -278,7 +279,7 @@ for event := range session.Events() {
 | `stt/events.go` | 事件类型定义、RecognitionEvent 结构体、工厂函数 |
 | `stt/client.go` | 客户端入口：CreateSession、RecognizeFile 高级API |
 | `stt/options.go` | 流式配置选项 |
-| `transport/conn.go` | WebSocket 连接：readLoop、pingLoop、SendJSON、重试 |
+| `transport/conn.go` | WebSocket 连接：readLoop、PingHandler、SendJSON、重试 |
 | `transport/message.go` | 消息编解码：ParseMessage、NewAudioAppend 等工厂函数 |
 | `protocol/messages.go` | 协议定义：所有消息类型常量和结构体 |
 | `examples/stt_stream/main.go` | 完整使用示例 |

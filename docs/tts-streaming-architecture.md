@@ -342,13 +342,14 @@ io.Copy(file, stream2)     // 读完第二轮（复用同一连接）
 
 ## 七、Goroutine 模型
 
-一个 TTS 会话运行时共 3 个后台 goroutine：
+一个 TTS 会话运行时共 2 个后台 goroutine：
 
 | Goroutine | 位置 | 职责 | 生命周期 |
 |-----------|------|------|---------|
 | `readLoop` | `transport/conn.go:149` | 从 WebSocket 读消息 → `readCh` | Connect 时启动，连接关闭时退出 |
-| `pingLoop` | `transport/conn.go:198` | 定时发送 Ping 保活（30s 间隔） | Connect 时启动（可选），连接关闭时退出 |
 | `messageLoop` | `tts/session.go:144` | 从 `readCh` 路由消息 → `AudioStream` | start() 时启动，ctx取消/closeCh关闭时退出 |
+
+保活由服务端 Ping 驱动：服务端每 20s 发 Ping → 客户端 PingHandler 重置 ReadDeadline + 回 Pong，无需客户端主动发心跳。
 
 与 STT 的区别：STT 的 `messageLoop` 输出到 `eventsCh`（事件 channel），TTS 的 `messageLoop` 输出到 `AudioStream.chunksCh`（音频 channel）。
 
@@ -509,7 +510,7 @@ config := tts.DefaultConfig().
 | `tts/session.go` | 会话管理：消息路由、多轮合成、TTFB、生命周期 |
 | `tts/stream.go` | 音频流：io.Reader 适配、channel 消费、时间信息委托 |
 | `tts/options.go` | 配置：Config、SynthesisOptions、Builder、验证 |
-| `transport/conn.go` | WebSocket 连接：readLoop、pingLoop、SendJSON、重试 |
+| `transport/conn.go` | WebSocket 连接：readLoop、PingHandler、SendJSON、重试 |
 | `transport/message.go` | 消息编解码：ParseMessage、NewTextAppend 等工厂函数 |
 | `protocol/messages.go` | 协议定义：所有消息类型常量和结构体 |
 | `errors.go` | 错误处理：ClientError、分类判断函数 |

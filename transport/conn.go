@@ -24,7 +24,6 @@ type Config struct {
 	ConnectTimeout   time.Duration // 连接超时
 	ReadTimeout      time.Duration // 读超时
 	WriteTimeout     time.Duration // 写超时
-	PingInterval     time.Duration // 心跳间隔
 	ReconnectBackoff time.Duration // 重连退避基数
 	MaxReconnects    int           // 最大重连次数
 }
@@ -35,7 +34,6 @@ func DefaultConfig() *Config {
 		ConnectTimeout:   10 * time.Second,
 		ReadTimeout:      60 * time.Second,
 		WriteTimeout:     10 * time.Second,
-		PingInterval:     30 * time.Second,
 		ReconnectBackoff: 1 * time.Second,
 		MaxReconnects:    3,
 	}
@@ -123,11 +121,6 @@ func (c *Conn) Connect(ctx context.Context) error {
 	// 启动读取goroutine
 	go c.readLoop()
 
-	// 启动心跳goroutine（可选）
-	if c.config.PingInterval > 0 {
-		go c.pingLoop()
-	}
-
 	slog.Info("WebSocket connected", "component", "transport", "url", c.config.URL, "connect_duration_ms", c.connectedAt.Sub(c.connectStartAt).Milliseconds())
 	return nil
 }
@@ -205,27 +198,6 @@ func (c *Conn) readLoop() {
 		case c.readCh <- message:
 		case <-c.closeCh:
 			return
-		}
-	}
-}
-
-// pingLoop 心跳循环
-func (c *Conn) pingLoop() {
-	ticker := time.NewTicker(c.config.PingInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-c.closeCh:
-			return
-		case <-ticker.C:
-			c.mu.Lock()
-			if c.ws != nil && c.connected {
-				if err := c.ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(c.config.WriteTimeout)); err != nil {
-					slog.Error("Ping failed", "component", "transport", "error", err)
-				}
-			}
-			c.mu.Unlock()
 		}
 	}
 }
