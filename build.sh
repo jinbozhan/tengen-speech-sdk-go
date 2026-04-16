@@ -27,6 +27,8 @@ go build ./...
 echo "[3/7] 编译 TTS Demo..."
 go build -o bin/tts_stream ./examples/tts_stream
 echo "      -> bin/tts_stream"
+go build -o bin/tts_pipeline ./examples/tts_pipeline
+echo "      -> bin/tts_pipeline"
 
 # 4. 编译 STT SDK Demo
 echo "[4/7] 编译 STT Demo..."
