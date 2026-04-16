@@ -22,7 +22,12 @@ type AudioStream struct {
 	totalSize      int64
 	err            error
 	sessionCloser  io.Closer  // 用于关闭底层 session
-	session        *Session   // 用于访问 session 时间信息
+	session        *Session   // 用于访问 session 连接时间信息
+
+	// 每轮独立的时间记录（管道化下每个 stream 有自己的 TTFB）
+	commitSentAt         time.Time // 本轮 input.commit 发送时间
+	firstChunkReceivedAt time.Time // 本轮首个 audio.delta 收到时间
+	timeMu               sync.Mutex
 }
 
 // AudioChunk 音频数据块
@@ -216,30 +221,46 @@ func (s *AudioStream) IsClosed() bool {
 	return s.closed
 }
 
-// CommitSentAt 返回 input.commit 发送时间
+// CommitSentAt 返回本轮 input.commit 发送时间
 func (s *AudioStream) CommitSentAt() time.Time {
-	if s.session == nil {
-		return time.Time{}
-	}
-	return s.session.CommitSentAt()
+	s.timeMu.Lock()
+	defer s.timeMu.Unlock()
+	return s.commitSentAt
 }
 
-// FirstChunkReceivedAt 返回首个 audio.delta 收到时间
+// FirstChunkReceivedAt 返回本轮首个 audio.delta 收到时间
 // 这个时间在 WebSocket 层接收到消息时立即记录，比应用层 Read() 更精确
 func (s *AudioStream) FirstChunkReceivedAt() time.Time {
-	if s.session == nil {
-		return time.Time{}
-	}
-	return s.session.FirstChunkReceivedAt()
+	s.timeMu.Lock()
+	defer s.timeMu.Unlock()
+	return s.firstChunkReceivedAt
 }
 
-// TTFB 返回从 commit 发送到首包收到的时间（毫秒）
-// 这是真正的 Time To First Byte，不包含建连和配置时间
+// TTFB 返回本轮从 commit 发送到首包收到的时间（毫秒）
+// 管道化下每个 stream 有独立的 TTFB，不受其他轮次影响
 func (s *AudioStream) TTFB() int64 {
-	if s.session == nil {
+	s.timeMu.Lock()
+	defer s.timeMu.Unlock()
+	if s.commitSentAt.IsZero() || s.firstChunkReceivedAt.IsZero() {
 		return 0
 	}
-	return s.session.TTFB()
+	return s.firstChunkReceivedAt.Sub(s.commitSentAt).Milliseconds()
+}
+
+// setCommitSentAt 记录本轮 commit 发送时间（内部使用）
+func (s *AudioStream) setCommitSentAt(t time.Time) {
+	s.timeMu.Lock()
+	s.commitSentAt = t
+	s.timeMu.Unlock()
+}
+
+// markFirstChunk 记录本轮首包接收时间（内部使用，仅第一次调用生效）
+func (s *AudioStream) markFirstChunk() {
+	s.timeMu.Lock()
+	if s.firstChunkReceivedAt.IsZero() {
+		s.firstChunkReceivedAt = time.Now()
+	}
+	s.timeMu.Unlock()
 }
 
 // ConnectDuration 返回建连耗时（TCP+TLS+WS握手）

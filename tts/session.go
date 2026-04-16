@@ -32,17 +32,14 @@ type Session struct {
 	configDoneCh chan struct{}   // config_done 信号
 	configDoneAt time.Time       // config_done 收到时间
 
-	// 多轮合成支持
-	ctx           context.Context
-	cancel        context.CancelFunc
-	currentStream *AudioStream // 当前轮的流
-	streamMu      sync.Mutex
-	roundCount    int  // 合成轮次计数
-	synthesizing  bool // 是否正在合成
+	// 多轮合成支持（管道化：支持快速连续提交，服务端 FIFO 按序合成）
+	ctx         context.Context
+	cancel      context.CancelFunc
+	streamQueue []*AudioStream   // 合成流 FIFO 队列（头部为当前正在接收音频的 stream）
+	streamMu    sync.Mutex
+	roundCount  int              // 合成轮次计数
 
-	// 时间记录
-	commitSentAt         time.Time // input.commit 发送时间
-	firstChunkReceivedAt time.Time // 首个 audio.delta 收到时间
+	// 时间记录（TTFB 已下沉到每个 AudioStream 独立追踪）
 }
 
 // newSession 创建会话
@@ -196,13 +193,6 @@ func (s *Session) handleConfigDone() {
 
 // handleAudioDelta 处理音频数据块
 func (s *Session) handleAudioDelta(data []byte) {
-	// 记录首包接收时间（比应用层 stream.Read 更精确）
-	s.mu.Lock()
-	if s.firstChunkReceivedAt.IsZero() {
-		s.firstChunkReceivedAt = time.Now()
-	}
-	s.mu.Unlock()
-
 	msg, err := transport.ParseMessage(data)
 	if err != nil {
 		slog.Error("Parse audio.delta error", "component", "tts", "error", err)
@@ -220,12 +210,17 @@ func (s *Session) handleAudioDelta(data []byte) {
 
 	s.seqNum++
 
-	// 推送到 currentStream
+	// 推送到队列头部的 stream（FIFO：服务端按序返回，头部即当前轮）
 	s.streamMu.Lock()
-	stream := s.currentStream
+	var stream *AudioStream
+	if len(s.streamQueue) > 0 {
+		stream = s.streamQueue[0]
+	}
 	s.streamMu.Unlock()
 
 	if stream != nil {
+		// 记录本轮首包接收时间（每个 stream 独立追踪）
+		stream.markFirstChunk()
 		stream.pushData(audioData, s.seqNum)
 	}
 }
@@ -241,11 +236,13 @@ func (s *Session) handleError(data []byte) {
 	errMsg := msg.(*protocol.ErrorMessage)
 	synthErr := fmt.Errorf("[%s] %s", errMsg.Code, errMsg.Message)
 
-	// 推送错误到 currentStream
+	// 推送错误到队列头部的 stream，并弹出
 	s.streamMu.Lock()
-	stream := s.currentStream
-	s.currentStream = nil
-	s.synthesizing = false
+	var stream *AudioStream
+	if len(s.streamQueue) > 0 {
+		stream = s.streamQueue[0]
+		s.streamQueue = s.streamQueue[1:]
+	}
 	s.streamMu.Unlock()
 
 	if stream != nil {
@@ -253,37 +250,39 @@ func (s *Session) handleError(data []byte) {
 	}
 }
 
-// handleAudioDone 处理合成完成（多轮模式）
+// handleAudioDone 处理合成完成（管道化：弹出队列头部 stream）
 func (s *Session) handleAudioDone() {
 	s.streamMu.Lock()
-	stream := s.currentStream
-	s.currentStream = nil
-	s.synthesizing = false
+	var stream *AudioStream
+	if len(s.streamQueue) > 0 {
+		stream = s.streamQueue[0]
+		s.streamQueue = s.streamQueue[1:]
+	}
+	pending := len(s.streamQueue)
 	s.streamMu.Unlock()
 
 	if stream != nil {
 		stream.pushDone()
 	}
 
-	slog.Info("Round completed", "component", "tts", "round", s.roundCount, "id", s.ID)
+	slog.Info("Round completed", "component", "tts", "round", s.roundCount, "pending", pending, "id", s.ID)
 }
 
-// handleStreamError 处理流错误
+// handleStreamError 处理流错误（连接级错误：所有排队中的 stream 都收到错误）
 func (s *Session) handleStreamError(err error) {
-	// 推送错误到 currentStream
 	s.streamMu.Lock()
-	stream := s.currentStream
-	s.currentStream = nil
-	s.synthesizing = false
+	queue := s.streamQueue
+	s.streamQueue = nil
 	s.streamMu.Unlock()
 
-	if stream != nil {
+	for _, stream := range queue {
 		stream.pushError(err)
 	}
 }
 
-// SynthesizeStream 合成下一段文本（多轮模式）
-// 返回音频流，可重复调用多次
+// SynthesizeStream 合成下一段文本（管道化模式）
+// 可连续快速调用多次，不需要等待上一轮完成。服务端按 FIFO 顺序合成。
+// 每次调用返回独立的 AudioStream，调用方通过 stream.Read 获取对应轮次的音频。
 func (s *Session) SynthesizeStream(ctx context.Context, text string) (*AudioStream, error) {
 	s.mu.Lock()
 	if s.closed {
@@ -296,21 +295,10 @@ func (s *Session) SynthesizeStream(ctx context.Context, text string) (*AudioStre
 	}
 	s.mu.Unlock()
 
-	s.streamMu.Lock()
-	if s.synthesizing {
-		s.streamMu.Unlock()
-		return nil, fmt.Errorf("synthesis in progress, wait for current round to complete")
-	}
-
-	// 重置每轮的时间记录
-	s.mu.Lock()
-	s.firstChunkReceivedAt = time.Time{}
-	s.mu.Unlock()
-
-	// 创建新的音频流
+	// 创建新的音频流并推入队列
 	stream := newAudioStream()
-	s.currentStream = stream
-	s.synthesizing = true
+	s.streamMu.Lock()
+	s.streamQueue = append(s.streamQueue, stream)
 	s.roundCount++
 	round := s.roundCount
 	s.streamMu.Unlock()
@@ -319,22 +307,30 @@ func (s *Session) SynthesizeStream(ctx context.Context, text string) (*AudioStre
 	textMsg := transport.NewTextAppend(text)
 	if err := s.conn.SendJSON(textMsg); err != nil {
 		s.streamMu.Lock()
-		s.currentStream = nil
-		s.synthesizing = false
+		// 从队列中移除刚加入的 stream
+		for i, st := range s.streamQueue {
+			if st == stream {
+				s.streamQueue = append(s.streamQueue[:i], s.streamQueue[i+1:]...)
+				break
+			}
+		}
 		s.streamMu.Unlock()
 		return nil, fmt.Errorf("send text: %w", err)
 	}
 
-	// 发送提交
-	s.mu.Lock()
-	s.commitSentAt = time.Now()
-	s.mu.Unlock()
+	// 发送提交（记录 commit 时间到 stream 级别，管道化下每轮独立追踪）
+	commitTime := time.Now()
+	stream.setCommitSentAt(commitTime)
 
 	commitMsg := transport.NewInputCommit()
 	if err := s.conn.SendJSON(commitMsg); err != nil {
 		s.streamMu.Lock()
-		s.currentStream = nil
-		s.synthesizing = false
+		for i, st := range s.streamQueue {
+			if st == stream {
+				s.streamQueue = append(s.streamQueue[:i], s.streamQueue[i+1:]...)
+				break
+			}
+		}
 		s.streamMu.Unlock()
 		return nil, fmt.Errorf("commit: %w", err)
 	}
@@ -351,11 +347,18 @@ func (s *Session) RoundCount() int {
 	return s.roundCount
 }
 
-// IsSynthesizing 返回是否正在合成中
+// IsSynthesizing 返回是否有正在进行或排队中的合成
 func (s *Session) IsSynthesizing() bool {
 	s.streamMu.Lock()
 	defer s.streamMu.Unlock()
-	return s.synthesizing
+	return len(s.streamQueue) > 0
+}
+
+// PendingRounds 返回队列中待合成的轮次数
+func (s *Session) PendingRounds() int {
+	s.streamMu.Lock()
+	defer s.streamMu.Unlock()
+	return len(s.streamQueue)
 }
 
 // SendText 发送要合成的文本
@@ -384,7 +387,6 @@ func (s *Session) Commit() error {
 	}
 
 	msg := transport.NewInputCommit()
-	s.commitSentAt = time.Now() // 记录 commit 发送时间
 	return s.conn.SendJSON(msg)
 }
 
@@ -416,12 +418,12 @@ func (s *Session) Close() error {
 		close(s.closeCh)
 		s.conn.Close()
 
-		// 清理 currentStream
+		// 清理所有排队中的 stream
 		s.streamMu.Lock()
-		if s.currentStream != nil {
-			s.currentStream.pushDone()
-			s.currentStream = nil
+		for _, stream := range s.streamQueue {
+			stream.pushDone()
 		}
+		s.streamQueue = nil
 		s.streamMu.Unlock()
 		slog.Info("Session closed", "component", "tts", "id", s.ID, "rounds", s.roundCount)
 	})
@@ -440,31 +442,6 @@ func (s *Session) IsClosed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.closed
-}
-
-// CommitSentAt 返回 input.commit 发送时间
-func (s *Session) CommitSentAt() time.Time {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.commitSentAt
-}
-
-// FirstChunkReceivedAt 返回首个 audio.delta 收到时间
-func (s *Session) FirstChunkReceivedAt() time.Time {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.firstChunkReceivedAt
-}
-
-// TTFB 返回从 commit 发送到首包收到的时间（毫秒）
-// 这是真正的 Time To First Byte，不包含建连和配置时间
-func (s *Session) TTFB() int64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.commitSentAt.IsZero() || s.firstChunkReceivedAt.IsZero() {
-		return 0
-	}
-	return s.firstChunkReceivedAt.Sub(s.commitSentAt).Milliseconds()
 }
 
 // ConnectDuration 返回建连耗时（从 Conn 获取）
