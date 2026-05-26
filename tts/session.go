@@ -13,6 +13,13 @@ import (
 	"github.com/jinbozhan/tengen-speech-sdk-go/transport"
 )
 
+const (
+	// defaultEstablishTimeout 建连阶段（waitReady + waitConfigDone）默认超时上限。
+	// 仅当调用方传入的 ctx 无 deadline 时兜底套用，避免 gateway waitConfigDone 永久挂起（timeout=error）。
+	// 须 > gateway warmupBudget(25s)，否则成功路径会被建连超时误杀。
+	defaultEstablishTimeout = 30 * time.Second
+)
+
 // Session TTS会话（支持多轮合成）
 type Session struct {
 	ID        string // 会话ID
@@ -57,10 +64,23 @@ func newSession(conn *transport.Conn, config *Config, opts *SynthesisOptions) *S
 	}
 }
 
+// establishCtx 给建连阶段套默认超时：调用方未带 deadline 时派生带 def 超时的 ctx；
+// 已带 deadline 则原样返回（尊重调用方）。返回的 cancel 始终可安全调用。
+func establishCtx(parent context.Context, def time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := parent.Deadline(); ok {
+		return parent, func() {}
+	}
+	return context.WithTimeout(parent, def)
+}
+
 // start 启动会话
 func (s *Session) start(ctx context.Context) error {
+	// 建连阶段默认超时（无 deadline ctx 时兜底），仅用于 waitReady / waitConfigDone
+	estCtx, cancel := establishCtx(ctx, defaultEstablishTimeout)
+	defer cancel()
+
 	// 等待session.ready
-	if err := s.waitReady(ctx); err != nil {
+	if err := s.waitReady(estCtx); err != nil {
 		return err
 	}
 
@@ -70,10 +90,11 @@ func (s *Session) start(ctx context.Context) error {
 	}
 
 	// 启动消息处理循环（需要先启动，才能接收 config_done）
+	// ⚠️ 必须用原始 ctx（会话生命周期），绝不能用 estCtx，否则建连超时会误杀整个消息循环
 	go s.messageLoop(ctx)
 
 	// 等待 session.config_done
-	if err := s.waitConfigDone(ctx); err != nil {
+	if err := s.waitConfigDone(estCtx); err != nil {
 		return err
 	}
 
